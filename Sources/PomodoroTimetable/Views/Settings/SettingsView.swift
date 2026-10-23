@@ -11,9 +11,13 @@ public struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dataManager: DataManager
     
+    var onClose: (() -> Void)?
+    
     @StateObject private var uiState = SettingsUIState()
     
-    public init() {}
+    public init(onClose: (() -> Void)? = nil) {
+        self.onClose = onClose
+    }
     
     public var body: some View {
         VStack(spacing: 0) {
@@ -24,7 +28,11 @@ public struct SettingsView: View {
                 Spacer()
                 Button("Done") {
                     dataManager.save()
-                    dismiss()
+                    if let onClose = onClose {
+                        onClose()
+                    } else {
+                        dismiss()
+                    }
                 }
                 .keyboardShortcut(.defaultAction)
             }
@@ -119,6 +127,9 @@ public struct SettingsView: View {
             .formStyle(.grouped)
             .padding()
         }
-        .frame(width: 450, height: 500)
+        .frame(width: 480, height: 530)
+        .onChange(of: dataManager.settings) { _, _ in
+            dataManager.save()
+        }
     }
 }

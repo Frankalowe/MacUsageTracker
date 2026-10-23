@@ -2,7 +2,6 @@ import SwiftUI
 
 @MainActor
 final class PopoverUIState: ObservableObject {
-    @Published var showingSettings: Bool = false
     @Published var showingAddBlock: Bool = false
 }
 
@@ -40,7 +39,7 @@ public struct MenuBarPopoverView: View {
                 Spacer()
                 
                 Button(action: {
-                    uiState.showingSettings = true
+                    SettingsWindowController.shared.showWindow()
                 }) {
                     Image(systemName: "gearshape")
                         .font(.system(size: 12))
@@ -322,9 +321,5 @@ public struct MenuBarPopoverView: View {
             .background(Color(NSColor.controlBackgroundColor))
         }
         .frame(width: 320, height: 500)
-        .sheet(isPresented: $uiState.showingSettings) {
-            SettingsView()
-                .environmentObject(dataManager)
-        }
     }
 }

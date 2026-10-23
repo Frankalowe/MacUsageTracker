@@ -1,6 +1,6 @@
 import Foundation
 
-public struct PomodoroSettings: Codable, Sendable {
+public struct PomodoroSettings: Codable, Sendable, Equatable {
     public var workDurationMinutes: Int
     public var shortBreakDurationMinutes: Int
     public var longBreakDurationMinutes: Int
