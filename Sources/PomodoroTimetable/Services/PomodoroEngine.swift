@@ -73,6 +73,7 @@ public final class PomodoroEngine: ObservableObject {
     // MARK: - Actions
     
     public func startSession(mode: PomodoroMode, block: TimetableBlock? = nil) {
+        NotificationManager.shared.stopChime()
         self.mode = mode
         if let block = block {
             self.activeBlockId = block.id
@@ -126,6 +127,7 @@ public final class PomodoroEngine: ObservableObject {
     }
     
     public func reset() {
+        NotificationManager.shared.stopChime()
         stopTimer()
         state = .idle
         resetToCurrentMode()
@@ -174,7 +176,7 @@ public final class PomodoroEngine: ObservableObject {
     private func sessionDidFinish() {
         let settings = DataManager.shared.settings
         if settings.playSoundChime {
-            NotificationManager.shared.playChime()
+            NotificationManager.shared.playChime(minimumDuration: 3.0)
         }
         
         if mode == .work {
