@@ -389,12 +389,14 @@ public final class UsageTrackerEngine: ObservableObject {
             let quoteInterval = duration / 3600
             if quoteInterval > lastQuoteIntervalIndex && quoteInterval > 0 {
                 lastQuoteIntervalIndex = quoteInterval
-                let item = NotificationService.shared.getRandomMotivationalQuote()
-                NotificationService.shared.sendNotification(
-                    title: "⚡ Hour \(quoteInterval) Milestone",
-                    subtitle: "Keep Going Strong",
-                    body: "\"\(item.quote)\" — \(item.author)"
-                )
+                Task {
+                    let item = await NotificationService.shared.getMotivationalQuote()
+                    NotificationService.shared.sendNotification(
+                        title: "⚡ Hour \(quoteInterval) Milestone",
+                        subtitle: "Keep Going Strong",
+                        body: "\"\(item.quote)\" — \(item.author)"
+                    )
+                }
             }
         }
         

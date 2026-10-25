@@ -67,4 +67,18 @@ public final class NotificationService {
     public func getRandomMotivationalQuote() -> (quote: String, author: String) {
         Self.motivationalQuotes.randomElement() ?? ("Focus on progress, not perfection.", "Anonymous")
     }
+    
+    /// Gets a motivational quote, sourcing from the local LLM if enabled, with fallback to curated library
+    public func getMotivationalQuote() async -> (quote: String, author: String) {
+        let settings = DataManager.shared.settings
+        if settings.useLocalLLMForQuotes {
+            if let llmQuote = await LocalLLMService.shared.generateMotivationalQuote(
+                preferredModel: settings.localLLMModel,
+                endpoint: settings.localLLMEndpoint
+            ) {
+                return llmQuote
+            }
+        }
+        return getRandomMotivationalQuote()
+    }
 }
