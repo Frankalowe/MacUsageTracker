@@ -18,6 +18,7 @@ public final class UsageTrackerEngine: ObservableObject {
     
     private var lastBrowserDomainCheckTime: TimeInterval = 0
     private var cachedBrowserDomain: String? = nil
+    private var lastStateSaveTime: TimeInterval = 0
     
     // Notification interval milestones
     public var lastQuoteIntervalIndex: Int = 0       // 60-minute interval tracker
@@ -30,8 +31,85 @@ public final class UsageTrackerEngine: ObservableObject {
     public init() {
         let now = Date()
         self.currentSessionStart = now
+        
+        // Restore running session seamlessly if recovering from app update/restart
+        restoreActiveSessionIfAvailable(fallbackNow: now)
+        
         startTimer()
         setupSystemObservers()
+    }
+    
+    private func restoreActiveSessionIfAvailable(fallbackNow: Date) {
+        let fileURL = DataManager.shared.activeSessionFileURL
+        guard FileManager.default.fileExists(atPath: fileURL.path),
+              let data = try? Data(contentsOf: fileURL),
+              let state = try? JSONDecoder().decode(ActiveSessionState.self, from: data) else {
+            persistActiveSessionState()
+            return
+        }
+        
+        let now = Date()
+        let timeSinceHeartbeat = now.timeIntervalSince(state.lastHeartbeat)
+        let bootTime = systemBootTime()
+        let didReboot = (bootTime != nil && bootTime! > state.lastHeartbeat)
+        
+        // If the app was restarted/updated recently (within 15 mins) and Mac didn't reboot in between:
+        // Seamlessly continue the active session with ZERO lost progress!
+        if timeSinceHeartbeat < 15 * 60 && !didReboot {
+            self.currentSessionStart = state.sessionStartTime
+            self.liveAppUsage = state.liveAppUsage
+            self.liveWebsiteUsage = state.liveWebsiteUsage
+            self.lastQuoteIntervalIndex = state.lastQuoteIntervalIndex
+            self.lastStretchIntervalIndex = state.lastStretchIntervalIndex
+            self.last10HourNotifiedDateKey = state.last10HourNotifiedDateKey
+            self.currentSessionDuration = max(0, now.timeIntervalSince(state.sessionStartTime))
+            print("Seamlessly resumed active session across app update! Duration: \(Int(currentSessionDuration))s")
+        } else {
+            // App was closed for a prolonged time or Mac rebooted: finalize past progress into history!
+            let duration = Int(state.lastHeartbeat.timeIntervalSince(state.sessionStartTime))
+            if duration >= DataManager.shared.settings.minimumSessionSeconds {
+                let session = UsageSession(
+                    startTime: state.sessionStartTime,
+                    endTime: state.lastHeartbeat,
+                    durationSeconds: duration,
+                    appUsage: state.liveAppUsage,
+                    websiteUsage: state.liveWebsiteUsage
+                )
+                DataManager.shared.addSession(session)
+                print("Finalized previous session of \(duration)s into history before starting fresh session")
+            }
+            try? FileManager.default.removeItem(at: fileURL)
+            self.currentSessionStart = fallbackNow
+            self.currentSessionDuration = 0
+        }
+        
+        persistActiveSessionState()
+    }
+    
+    private func systemBootTime() -> Date? {
+        var mib = [CTL_KERN, KERN_BOOTTIME]
+        var bootTime = timeval()
+        var size = MemoryLayout<timeval>.size
+        if sysctl(&mib, 2, &bootTime, &size, nil, 0) == 0 {
+            return Date(timeIntervalSince1970: TimeInterval(bootTime.tv_sec))
+        }
+        return nil
+    }
+    
+    public func persistActiveSessionState() {
+        guard isAwake else { return }
+        let state = ActiveSessionState(
+            sessionStartTime: currentSessionStart,
+            lastHeartbeat: Date(),
+            liveAppUsage: liveAppUsage,
+            liveWebsiteUsage: liveWebsiteUsage,
+            lastQuoteIntervalIndex: lastQuoteIntervalIndex,
+            lastStretchIntervalIndex: lastStretchIntervalIndex,
+            last10HourNotifiedDateKey: last10HourNotifiedDateKey
+        )
+        if let data = try? JSONEncoder().encode(state) {
+            try? data.write(to: DataManager.shared.activeSessionFileURL, options: .atomic)
+        }
     }
     
     deinit {
@@ -122,6 +200,13 @@ public final class UsageTrackerEngine: ObservableObject {
         }
         
         checkNotificationTriggers()
+        
+        // Persist active session state every 5 seconds so updates or restarts never lose progress
+        let now = Date().timeIntervalSince1970
+        if now - lastStateSaveTime >= 5.0 {
+            lastStateSaveTime = now
+            persistActiveSessionState()
+        }
     }
     
     /// Queries the active tab domain when a browser is in focus, sampling every 2s for zero overhead.
@@ -266,11 +351,13 @@ public final class UsageTrackerEngine: ObservableObject {
         liveWebsiteUsage.removeAll()
         cachedBrowserDomain = nil
         isAwake = true
+        persistActiveSessionState()
         startTimer()
     }
     
     public func handleSystemWillTerminate() {
-        finalizeCurrentSession()
+        // Save current active state before process terminates so that upon update/relaunch it resumes seamlessly
+        persistActiveSessionState()
     }
     
     private func finalizeCurrentSession() {
@@ -291,5 +378,8 @@ public final class UsageTrackerEngine: ObservableObject {
         liveAppUsage.removeAll()
         liveWebsiteUsage.removeAll()
         cachedBrowserDomain = nil
+        
+        // Remove active session file since session was officially finalized
+        try? FileManager.default.removeItem(at: DataManager.shared.activeSessionFileURL)
     }
 }

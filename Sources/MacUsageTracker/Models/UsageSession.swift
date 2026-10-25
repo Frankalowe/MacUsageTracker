@@ -196,3 +196,31 @@ public struct WebsiteUsageStat: Identifiable, Sendable, Equatable {
         self.percentage = percentage
     }
 }
+
+public struct ActiveSessionState: Codable, Sendable {
+    public var sessionStartTime: Date
+    public var lastHeartbeat: Date
+    public var liveAppUsage: [String: Int]
+    public var liveWebsiteUsage: [String: Int]
+    public var lastQuoteIntervalIndex: Int
+    public var lastStretchIntervalIndex: Int
+    public var last10HourNotifiedDateKey: String?
+    
+    public init(
+        sessionStartTime: Date,
+        lastHeartbeat: Date = Date(),
+        liveAppUsage: [String: Int] = [:],
+        liveWebsiteUsage: [String: Int] = [:],
+        lastQuoteIntervalIndex: Int = 0,
+        lastStretchIntervalIndex: Int = 0,
+        last10HourNotifiedDateKey: String? = nil
+    ) {
+        self.sessionStartTime = sessionStartTime
+        self.lastHeartbeat = lastHeartbeat
+        self.liveAppUsage = liveAppUsage
+        self.liveWebsiteUsage = liveWebsiteUsage
+        self.lastQuoteIntervalIndex = lastQuoteIntervalIndex
+        self.lastStretchIntervalIndex = lastStretchIntervalIndex
+        self.last10HourNotifiedDateKey = last10HourNotifiedDateKey
+    }
+}

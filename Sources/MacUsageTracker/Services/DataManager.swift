@@ -48,6 +48,7 @@ public final class DataManager: ObservableObject {
     @Published public var settings: AppSettings = .default
     
     private let fileURL: URL
+    public let activeSessionFileURL: URL
     private var pruneCancellable: AnyCancellable?
     
     public init() {
@@ -56,6 +57,7 @@ public final class DataManager: ObservableObject {
         
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
         self.fileURL = appDir.appendingPathComponent("data.json")
+        self.activeSessionFileURL = appDir.appendingPathComponent("active_session.json")
         
         load()
         
@@ -68,15 +70,24 @@ public final class DataManager: ObservableObject {
     }
     
     public func load() {
-        guard FileManager.default.fileExists(atPath: fileURL.path),
-              let data = try? Data(contentsOf: fileURL) else {
-            self.sessions = []
-            self.settings = .default
-            return
+        var loadedData: AppData?
+        
+        if FileManager.default.fileExists(atPath: fileURL.path),
+           let data = try? Data(contentsOf: fileURL) {
+            loadedData = try? JSONDecoder().decode(AppData.self, from: data)
         }
         
-        do {
-            let decoded = try JSONDecoder().decode(AppData.self, from: data)
+        // If primary file failed to decode or was missing, check automated backup file
+        let backupURL = fileURL.deletingPathExtension().appendingPathExtension("bak")
+        if loadedData == nil && FileManager.default.fileExists(atPath: backupURL.path),
+           let backupData = try? Data(contentsOf: backupURL) {
+            loadedData = try? JSONDecoder().decode(AppData.self, from: backupData)
+            if loadedData != nil {
+                print("Recovered AppData from backup file: \(backupURL.path)")
+            }
+        }
+        
+        if let decoded = loadedData {
             self.settings = decoded.settings
             self.sessions = decoded.sessions
             
@@ -88,10 +99,14 @@ public final class DataManager: ObservableObject {
             }
             
             pruneOldSessions()
-        } catch {
-            print("Failed to decode data, using defaults: \(error)")
-            self.sessions = []
+        } else {
             self.settings = .default
+            self.sessions = []
+        }
+        
+        // Import legacy Pomodoro sessions if MacUsageTracker is brand new or empty
+        if self.sessions.isEmpty {
+            importLegacyPomodoroDataIfNeeded()
         }
     }
     
@@ -100,9 +115,57 @@ public final class DataManager: ObservableObject {
         let appData = AppData(settings: settings, sessions: sessions)
         do {
             let data = try JSONEncoder().encode(appData)
+            
+            // Create automated backup before overwriting
+            let backupURL = fileURL.deletingPathExtension().appendingPathExtension("bak")
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                try? FileManager.default.removeItem(at: backupURL)
+                try? FileManager.default.copyItem(at: fileURL, to: backupURL)
+            }
+            
             try data.write(to: fileURL, options: .atomic)
         } catch {
             print("Failed to save data: \(error)")
+        }
+    }
+    
+    private func importLegacyPomodoroDataIfNeeded() {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let legacyDir = appSupport.appendingPathComponent("PomodoroTimetable", isDirectory: true)
+        let legacyFile = legacyDir.appendingPathComponent("data.json")
+        guard FileManager.default.fileExists(atPath: legacyFile.path),
+              let data = try? Data(contentsOf: legacyFile),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let timerRecords = json["timerRecords"] as? [[String: Any]] else {
+            return
+        }
+        
+        var importedSessions: [UsageSession] = []
+        for record in timerRecords {
+            let idString = record["id"] as? String ?? UUID().uuidString
+            let id = UUID(uuidString: idString) ?? UUID()
+            let durationSeconds = record["durationSecondsUsed"] as? Int ?? ((record["durationMinutes"] as? Int ?? 25) * 60)
+            guard durationSeconds >= 30 else { continue }
+            
+            let timestamp = record["timestamp"] as? TimeInterval ?? 0
+            let completedAt = record["completedAt"] as? TimeInterval ?? (timestamp + Double(durationSeconds))
+            let startTime = Date(timeIntervalSinceReferenceDate: timestamp)
+            let endTime = Date(timeIntervalSinceReferenceDate: completedAt)
+            
+            importedSessions.append(UsageSession(
+                id: id,
+                startTime: startTime,
+                endTime: endTime,
+                durationSeconds: durationSeconds,
+                appUsage: [:],
+                websiteUsage: [:]
+            ))
+        }
+        
+        if !importedSessions.isEmpty {
+            self.sessions.append(contentsOf: importedSessions)
+            save()
+            print("Successfully migrated \(importedSessions.count) legacy sessions from PomodoroTimetable")
         }
     }
     

@@ -13,8 +13,9 @@ run: bundle
 	open MacUsageTracker.app
 
 install: bundle
-	@pkill -f "MacUsageTracker" 2>/dev/null || true
-	@pkill -f "PomodoroTimetable" 2>/dev/null || true
+	@pkill -TERM -f "MacUsageTracker" 2>/dev/null || true
+	@sleep 0.3
+	@pkill -9 -f "PomodoroTimetable" 2>/dev/null || true
 	rm -rf /Applications/MacUsageTracker.app /Applications/PomodoroTimetable.app
 	cp -R MacUsageTracker.app /Applications/
 	@echo "✅ Installed MacUsageTracker.app to /Applications"
