@@ -123,6 +123,21 @@ public final class UsageTrackerEngine: ObservableObject {
             }
         }
         
+        // Strip long tagline suffixes like " – Tagline", " — Tagline", " | Tagline", " - Tagline"
+        for separator in [" – ", " — ", " | ", " - "] {
+            if let sepRange = cleanTitle.range(of: separator) {
+                let prefix = String(cleanTitle[..<sepRange.lowerBound]).trimmingCharacters(in: .whitespaces)
+                if !prefix.isEmpty && prefix.count >= 2 {
+                    cleanTitle = prefix
+                    break
+                }
+            }
+        }
+        
+        if cleanTitle.count > 30 {
+            cleanTitle = String(cleanTitle.prefix(28)) + "…"
+        }
+        
         if cleanTitle.isEmpty || cleanTitle.lowercased() == cleanHost || cleanTitle.lowercased() == hostWithPort || cleanTitle.hasPrefix("http") {
             return hostWithPort
         }
