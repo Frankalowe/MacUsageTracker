@@ -3,13 +3,13 @@ set -e
 
 CONFIG=${1:-release}
 APP_NAME="PomodoroTimetable"
-APP_BUNDLE="${APP_NAME}.app"
+APP_BUNDLE="MacUsageTracker.app"
 
 echo "🔨 Building ${APP_NAME} (${CONFIG})..."
 swift build -c "${CONFIG}"
 
 echo "📦 Creating macOS App Bundle..."
-rm -rf "${APP_BUNDLE}"
+rm -rf "${APP_BUNDLE}" PomodoroTimetable.app
 mkdir -p "${APP_BUNDLE}/Contents/MacOS"
 mkdir -p "${APP_BUNDLE}/Contents/Resources"
 
@@ -27,11 +27,11 @@ cat << 'EOF' > "${APP_BUNDLE}/Contents/Info.plist"
     <key>CFBundleExecutable</key>
     <string>PomodoroTimetable</string>
     <key>CFBundleIdentifier</key>
-    <string>com.antigravity.PomodoroTimetable</string>
+    <string>com.antigravity.MacUsageTracker</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Pomodoro Timetable</string>
+    <string>Mac Usage Tracker</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

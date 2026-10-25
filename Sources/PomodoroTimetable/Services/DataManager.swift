@@ -3,51 +3,93 @@ import SwiftUI
 import Combine
 
 public struct AppData: Codable {
-    public var categories: [TaskCategory]
-    public var blocks: [TimetableBlock]
-    public var settings: PomodoroSettings
+    public var settings: AppSettings
+    public var sessions: [UsageSession]
+    
+    // Backwards compatibility with previous versions
+    enum CodingKeys: String, CodingKey {
+        case settings
+        case sessions
+        case timerRecords
+    }
+    
+    public init(settings: AppSettings, sessions: [UsageSession]) {
+        self.settings = settings
+        self.sessions = sessions
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.settings = (try? container.decode(AppSettings.self, forKey: .settings)) ?? .default
+        
+        if let decodedSessions = try? container.decode([UsageSession].self, forKey: .sessions) {
+            self.sessions = decodedSessions
+        } else {
+            self.sessions = []
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(settings, forKey: .settings)
+        try container.encode(sessions, forKey: .sessions)
+    }
 }
 
 @MainActor
 public final class DataManager: ObservableObject {
     public static let shared = DataManager()
     
-    @Published public var categories: [TaskCategory] = []
-    @Published public var blocks: [TimetableBlock] = []
-    @Published public var settings: PomodoroSettings = .default
+    // 7-day retention policy: 7 days in seconds
+    public static let retentionDays: Int = 7
+    public static let retentionSeconds: TimeInterval = 7 * 24 * 60 * 60
+    
+    @Published public var sessions: [UsageSession] = []
+    @Published public var settings: AppSettings = .default
     
     private let fileURL: URL
+    private var pruneCancellable: AnyCancellable?
     
     public init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let appDir = appSupport.appendingPathComponent("PomodoroTimetable", isDirectory: true)
+        let appDir = appSupport.appendingPathComponent("MacUsageTracker", isDirectory: true)
         
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
         self.fileURL = appDir.appendingPathComponent("data.json")
         
         load()
+        
+        // Setup recurring hourly check to purge any usage sessions older than 7 days
+        pruneCancellable = Timer.publish(every: 3600, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.pruneOldSessions()
+            }
     }
     
     public func load() {
         guard FileManager.default.fileExists(atPath: fileURL.path),
               let data = try? Data(contentsOf: fileURL) else {
-            loadDefaultData()
+            self.sessions = []
+            self.settings = .default
             return
         }
         
         do {
             let decoded = try JSONDecoder().decode(AppData.self, from: data)
-            self.categories = decoded.categories.isEmpty ? TaskCategory.defaultCategories : decoded.categories
-            self.blocks = decoded.blocks
             self.settings = decoded.settings
+            self.sessions = decoded.sessions
+            pruneOldSessions()
         } catch {
-            print("Failed to decode data, loading defaults: \(error)")
-            loadDefaultData()
+            print("Failed to decode data, using defaults: \(error)")
+            self.sessions = []
+            self.settings = .default
         }
     }
     
     public func save() {
-        let appData = AppData(categories: categories, blocks: blocks, settings: settings)
+        pruneOldSessions()
+        let appData = AppData(settings: settings, sessions: sessions)
         do {
             let data = try JSONEncoder().encode(appData)
             try data.write(to: fileURL, options: .atomic)
@@ -56,167 +98,117 @@ public final class DataManager: ObservableObject {
         }
     }
     
-    private func loadDefaultData() {
-        self.categories = TaskCategory.defaultCategories
-        self.settings = .default
-        
-        // Generate helpful initial timetable blocks for weekdays
-        let deepWorkCat = categories[0]
-        let meetingCat = categories[1]
-        let learningCat = categories[2]
-        let adminCat = categories[3]
-        
-        let now = Date()
-        self.blocks = [
-            // Morning Deep Work (Weekdays 09:00 - 11:30)
-            TimetableBlock(
-                title: "Core Deep Work",
-                notes: "High-focus priority tasks & development",
-                categoryId: deepWorkCat.id,
-                date: now,
-                startMinuteOfDay: 9 * 60, // 09:00
-                durationMinutes: 150, // 2.5 hours
-                targetPomodoros: 4,
-                completedPomodoros: 1,
-                recurrenceRule: .weekdays,
-                bufferAfterMinutes: 15
-            ),
-            // Daily Team Standup (Weekdays 11:45 - 12:15)
-            TimetableBlock(
-                title: "Daily Standup & Sync",
-                notes: "Team updates & blockers",
-                categoryId: meetingCat.id,
-                date: now,
-                startMinuteOfDay: 11 * 60 + 45, // 11:45
-                durationMinutes: 30,
-                targetPomodoros: 1,
-                completedPomodoros: 1,
-                recurrenceRule: .weekdays,
-                bufferAfterMinutes: 45 // Lunch break buffer
-            ),
-            // Afternoon Focus (Weekdays 13:30 - 15:30)
-            TimetableBlock(
-                title: "Feature Implementation",
-                notes: "Building key deliverables",
-                categoryId: deepWorkCat.id,
-                date: now,
-                startMinuteOfDay: 13 * 60 + 30, // 13:30
-                durationMinutes: 120,
-                targetPomodoros: 3,
-                completedPomodoros: 0,
-                recurrenceRule: .weekdays,
-                bufferAfterMinutes: 15
-            ),
-            // Admin & Inbox Zero (Weekdays 16:00 - 17:00)
-            TimetableBlock(
-                title: "Admin, PRs & Inbox",
-                notes: "Review pending PRs and organize tomorrow's goals",
-                categoryId: adminCat.id,
-                date: now,
-                startMinuteOfDay: 16 * 60, // 16:00
-                durationMinutes: 60,
-                targetPomodoros: 2,
-                completedPomodoros: 0,
-                recurrenceRule: .weekdays,
-                bufferAfterMinutes: 0
-            ),
-            // Weekend Learning (Saturday 10:00 - 12:00)
-            TimetableBlock(
-                title: "Weekend Project & Tech Reading",
-                notes: "Explore new frameworks and research",
-                categoryId: learningCat.id,
-                date: now,
-                startMinuteOfDay: 10 * 60,
-                durationMinutes: 120,
-                targetPomodoros: 3,
-                completedPomodoros: 0,
-                recurrenceRule: RecurrenceRule(frequency: .customWeekly, daysOfWeek: [7]), // Sat
-                bufferAfterMinutes: 10
-            )
-        ]
-        save()
-    }
+    // MARK: - 7-Day Retention Management
     
-    // MARK: - Block Queries & Manipulation
-    
-    public func blocks(for date: Date) -> [TimetableBlock] {
-        return blocks
-            .filter { $0.occursOn(date: date) }
-            .sorted { $0.startMinuteOfDay < $1.startMinuteOfDay }
-    }
-    
-    public func currentBlock(at date: Date = Date()) -> TimetableBlock? {
-        let calendar = Calendar.current
-        let currentMinute = calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
-        
-        let todayBlocks = blocks(for: date)
-        return todayBlocks.first { block in
-            currentMinute >= block.startMinuteOfDay && currentMinute < block.endMinuteOfDay
-        }
-    }
-    
-    public func nextUpcomingBlock(at date: Date = Date()) -> TimetableBlock? {
-        let calendar = Calendar.current
-        let currentMinute = calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
-        
-        let todayBlocks = blocks(for: date)
-        return todayBlocks.first { block in
-            block.startMinuteOfDay > currentMinute
-        }
-    }
-    
-    public func addBlock(_ block: TimetableBlock) {
-        blocks.append(block)
-        save()
-    }
-    
-    public func updateBlock(_ block: TimetableBlock) {
-        if let index = blocks.firstIndex(where: { $0.id == block.id }) {
-            blocks[index] = block
-            save()
-        }
-    }
-    
-    public func deleteBlock(withId id: UUID) {
-        blocks.removeAll { $0.id == id }
-        save()
-    }
-    
-    public func toggleBlockCompletion(withId id: UUID) {
-        if let index = blocks.firstIndex(where: { $0.id == id }) {
-            blocks[index].isCompleted.toggle()
-            save()
-        }
-    }
-    
-    public func incrementPomodoro(forBlockId id: UUID) {
-        if let index = blocks.firstIndex(where: { $0.id == id }) {
-            blocks[index].completedPomodoros += 1
-            if blocks[index].completedPomodoros >= blocks[index].targetPomodoros {
-                blocks[index].isCompleted = true
+    /// Prunes any session records older than 7 days from the reference date.
+    /// Returns the number of records pruned.
+    @discardableResult
+    public func pruneOldSessions(referenceDate: Date = Date()) -> Int {
+        let cutoff = referenceDate.addingTimeInterval(-Self.retentionSeconds)
+        let beforeCount = sessions.count
+        sessions.removeAll { $0.startTime < cutoff }
+        let removed = beforeCount - sessions.count
+        if removed > 0 {
+            let appData = AppData(settings: settings, sessions: sessions)
+            if let data = try? JSONEncoder().encode(appData) {
+                try? data.write(to: fileURL, options: .atomic)
             }
-            save()
+        }
+        return removed
+    }
+    
+    /// Adds a completed MacBook usage session to persistent storage.
+    public func addSession(_ session: UsageSession) {
+        pruneOldSessions()
+        sessions.append(session)
+        save()
+    }
+    
+    // MARK: - Queries
+    
+    /// Returns all sessions recorded for today.
+    public func todaySessions(referenceDate: Date = Date()) -> [UsageSession] {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: referenceDate)
+        guard let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) else {
+            return []
+        }
+        return sessions
+            .filter { $0.startTime >= startOfToday && $0.startTime < endOfToday }
+            .sorted { $0.startTime > $1.startTime }
+    }
+    
+    /// Total seconds of Mac screen time today, including currently running active session uptime.
+    public func todayTotalSeconds(referenceDate: Date = Date(), liveCurrentDuration: TimeInterval = 0) -> Int {
+        let completedToday = todaySessions(referenceDate: referenceDate).reduce(0) { $0 + $1.durationSeconds }
+        return completedToday + Int(liveCurrentDuration)
+    }
+    
+    /// Formatted total screen time for today (e.g. "3h 45m" or "42m").
+    public func todayTotalFormatted(referenceDate: Date = Date(), liveCurrentDuration: TimeInterval = 0) -> String {
+        let total = todayTotalSeconds(referenceDate: referenceDate, liveCurrentDuration: liveCurrentDuration)
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else {
+            return "\(minutes)m"
         }
     }
     
-    public func category(for id: UUID) -> TaskCategory {
-        return categories.first(where: { $0.id == id }) ?? categories.first ?? TaskCategory(name: "General", colorHex: "#4F46E5")
+    /// Returns all sessions stored for the last 7 days, sorted newest first.
+    public func sessionsInLast7Days(referenceDate: Date = Date()) -> [UsageSession] {
+        let cutoff = referenceDate.addingTimeInterval(-Self.retentionSeconds)
+        return sessions
+            .filter { $0.startTime >= cutoff }
+            .sorted { $0.startTime > $1.startTime }
     }
     
-    /// Auto-pads buffer time between adjacent or overlapping blocks for the chosen date
-    public func autoPadBuffers(for date: Date, bufferMinutes: Int = 10) {
-        let dayBlocks = blocks(for: date)
-        guard dayBlocks.count > 1 else { return }
+    /// Total seconds of Mac screen time over the last 7 days.
+    public func total7DaySeconds(referenceDate: Date = Date(), liveCurrentDuration: TimeInterval = 0) -> Int {
+        let completed = sessionsInLast7Days(referenceDate: referenceDate).reduce(0) { $0 + $1.durationSeconds }
+        return completed + Int(liveCurrentDuration)
+    }
+    
+    /// Returns day-by-day summary for each of the last N days (default 7 days).
+    public func dailyUsageSummaries(lastDays: Int = 7, referenceDate: Date = Date(), liveCurrentDuration: TimeInterval = 0) -> [DayUsageSummary] {
+        let calendar = Calendar.current
+        var summaries: [DayUsageSummary] = []
+        let startOfRefDay = calendar.startOfDay(for: referenceDate)
         
-        var adjustedStart = dayBlocks[0].startMinuteOfDay
-        for i in 0..<dayBlocks.count {
-            var block = dayBlocks[i]
-            if block.startMinuteOfDay < adjustedStart {
-                block.startMinuteOfDay = adjustedStart
+        for dayOffset in (0..<lastDays).reversed() {
+            guard let dayDate = calendar.date(byAdding: .day, value: -dayOffset, to: startOfRefDay),
+                  let nextDayDate = calendar.date(byAdding: .day, value: 1, to: dayDate) else {
+                continue
             }
-            block.bufferAfterMinutes = bufferMinutes
-            updateBlock(block)
-            adjustedStart = block.endMinuteOfDay + bufferMinutes
+            
+            let isToday = calendar.isDateInToday(dayDate)
+            let daySessions = sessions.filter { $0.startTime >= dayDate && $0.startTime < nextDayDate }
+            var totalSeconds = daySessions.reduce(0) { $0 + $1.durationSeconds }
+            
+            if isToday {
+                totalSeconds += Int(liveCurrentDuration)
+            }
+            
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "EEE"
+            let label = isToday ? "Today" : dayFormatter.string(from: dayDate)
+            
+            summaries.append(DayUsageSummary(
+                date: dayDate,
+                dayLabel: label,
+                isToday: isToday,
+                sessionCount: daySessions.count + (isToday && liveCurrentDuration > 0 ? 1 : 0),
+                totalSeconds: totalSeconds
+            ))
         }
+        
+        return summaries
+    }
+    
+    /// Clears all stored sessions manually.
+    public func clearAllSessions() {
+        sessions.removeAll()
+        save()
     }
 }

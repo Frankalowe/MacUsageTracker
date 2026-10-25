@@ -22,7 +22,6 @@ public final class SettingsWindowController: NSObject, NSWindowDelegate {
             self?.closeWindow()
         })
         .environmentObject(DataManager.shared)
-        .environmentObject(PomodoroEngine.shared)
         
         let hostingController = NSHostingController(rootView: contentView)
         

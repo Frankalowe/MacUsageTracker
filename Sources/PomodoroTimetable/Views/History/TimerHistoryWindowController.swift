@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 @MainActor
-public final class TimetableWindowController: NSObject, NSWindowDelegate {
-    public static let shared = TimetableWindowController()
+public final class TimerHistoryWindowController: NSObject, NSWindowDelegate {
+    public static let shared = TimerHistoryWindowController()
     
     private var window: NSWindow?
     
@@ -18,23 +18,21 @@ public final class TimetableWindowController: NSObject, NSWindowDelegate {
             return
         }
         
-        let contentView = TimetableMainView()
+        let contentView = TimerHistoryView()
             .environmentObject(DataManager.shared)
-            .environmentObject(PomodoroEngine.shared)
+            .environmentObject(UsageTrackerEngine.shared)
         
         let hostingController = NSHostingController(rootView: contentView)
         
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1150, height: 800),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 620, height: 680),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         
-        newWindow.title = "Weekly Timetable & Planner"
-        newWindow.titlebarAppearsTransparent = false
-        newWindow.titleVisibility = .visible
-        newWindow.minSize = NSSize(width: 850, height: 550)
+        newWindow.title = "Mac Usage History (Last 7 Days)"
+        newWindow.minSize = NSSize(width: 520, height: 500)
         newWindow.contentViewController = hostingController
         newWindow.center()
         newWindow.isReleasedWhenClosed = false
@@ -45,7 +43,12 @@ public final class TimetableWindowController: NSObject, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
     
+    public func closeWindow() {
+        window?.close()
+        window = nil
+    }
+    
     public func windowWillClose(_ notification: Notification) {
-        // Keep controller ready to reopen anytime
+        window = nil
     }
 }

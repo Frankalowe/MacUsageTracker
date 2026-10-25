@@ -6,7 +6,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Run as a status bar accessory app (no dock icon clutter)
         NSApp.setActivationPolicy(.accessory)
-        NotificationManager.shared.requestAuthorization()
+        
+        // Request notification authorization for stretch, quotes, and 10h reminders
+        NotificationService.shared.requestAuthorization()
+        
+        // Ensure launch at login preference is respected
+        if DataManager.shared.settings.launchAtLogin {
+            LaunchAtLoginManager.setEnabled(true)
+        }
     }
 }
 
@@ -14,16 +21,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct PomodoroTimetableApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var dataManager = DataManager.shared
-    @StateObject private var pomodoroEngine = PomodoroEngine.shared
+    @StateObject private var usageEngine = UsageTrackerEngine.shared
     
     var body: some Scene {
         MenuBarExtra {
             MenuBarPopoverView()
                 .environmentObject(dataManager)
-                .environmentObject(pomodoroEngine)
+                .environmentObject(usageEngine)
         } label: {
             HStack(spacing: 4) {
-                Text(pomodoroEngine.menuBarTitle)
+                Text(usageEngine.menuBarTitle)
             }
         }
         .menuBarExtraStyle(.window)
