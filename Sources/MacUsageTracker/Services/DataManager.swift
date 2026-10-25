@@ -354,16 +354,32 @@ public final class DataManager: ObservableObject {
         topPrograms(sessions: sessionsInLastDays(days: days), limit: limit, liveAppUsage: liveAppUsage)
     }
 
+    /// Normalizes and cleans website domain names and local software titles
+    public static func normalizeWebsiteName(_ name: String) -> String {
+        if name.contains("ClipForge") {
+            if name.contains("3000") {
+                return "ClipForge (localhost:3000)"
+            }
+            return "ClipForge"
+        }
+        return name
+    }
+
     /// Aggregates website domain usage across the given sessions and optional live session.
     public func topWebsites(
         sessions: [UsageSession],
         limit: Int = 10,
         liveWebsiteUsage: [String: Int] = [:]
     ) -> [WebsiteUsageStat] {
-        var totals = liveWebsiteUsage
+        var totals: [String: Int] = [:]
+        for (domain, secs) in liveWebsiteUsage {
+            let norm = Self.normalizeWebsiteName(domain)
+            totals[norm, default: 0] += secs
+        }
         for session in sessions {
             for (domain, secs) in session.websiteUsage {
-                totals[domain, default: 0] += secs
+                let norm = Self.normalizeWebsiteName(domain)
+                totals[norm, default: 0] += secs
             }
         }
         for ignored in Self.ignoredDomains {

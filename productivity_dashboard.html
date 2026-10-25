@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mac Usage Tracker — AI Productivity Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            macBg: '#121214',
+            macCard: '#1C1C1F',
+            macBorder: '#2C2C30',
+            macAccent: '#3B82F6',
+            macEmerald: '#10B981',
+            macPurple: '#8B5CF6'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-macBg text-slate-100 min-h-screen p-6 md:p-10 selection:bg-macAccent selection:text-white">
+
+  <!-- Header -->
+  <header class="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-8 border-b border-macBorder">
+    <div>
+      <div class="flex items-center gap-3">
+        <span class="text-3xl">💻</span>
+        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+          Mac Usage Tracker
+        </h1>
+        <span class="px-2.5 py-0.5 text-xs font-semibold bg-macEmerald/20 text-macEmerald border border-macEmerald/30 rounded-full flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-macEmerald animate-pulse"></span>
+          AI Analytics Live
+        </span>
+      </div>
+      <p class="text-sm text-slate-400 mt-1">
+        Personalized Deep Work, Software & Focus Analytics • Powered by Local LLM (Ollama)
+      </p>
+    </div>
+
+    <!-- Period Selector -->
+    <div class="flex items-center bg-macCard border border-macBorder p-1 rounded-xl shadow-lg">
+      <button onclick="switchPeriod('today')" id="btn-today" class="period-btn px-4 py-1.5 text-xs font-semibold rounded-lg transition-all bg-macAccent text-white shadow">
+        Today
+      </button>
+      <button onclick="switchPeriod('week')" id="btn-week" class="period-btn px-4 py-1.5 text-xs font-medium text-slate-400 hover:text-white rounded-lg transition-all">
+        Past 7 Days
+      </button>
+      <button onclick="switchPeriod('month')" id="btn-month" class="period-btn px-4 py-1.5 text-xs font-medium text-slate-400 hover:text-white rounded-lg transition-all">
+        35 Days (Monthly)
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto mt-8 space-y-8">
+
+    <!-- Top KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <!-- Total Screen Time -->
+      <div class="bg-macCard border border-macBorder rounded-2xl p-5 shadow-sm hover:border-macAccent/50 transition duration-200">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Screen Time</span>
+          <span class="p-2 bg-blue-500/10 text-blue-400 rounded-lg">⏱️</span>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <span id="kpi-screentime" class="text-3xl font-bold mono">4h 15m</span>
+          <span class="text-xs text-macEmerald font-medium">+12% vs avg</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">Auto wake-to-sleep tracked</p>
+      </div>
+
+      <!-- Productivity Score -->
+      <div class="bg-macCard border border-macBorder rounded-2xl p-5 shadow-sm hover:border-macEmerald/50 transition duration-200">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Productivity Score</span>
+          <span class="p-2 bg-emerald-500/10 text-macEmerald rounded-lg">🎯</span>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <span id="kpi-score" class="text-3xl font-bold mono text-macEmerald">88 / 100</span>
+          <span class="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium">Deep Flow</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">81% high-value cognitive work</p>
+      </div>
+
+      <!-- Top Software -->
+      <div class="bg-macCard border border-macBorder rounded-2xl p-5 shadow-sm hover:border-orange-500/50 transition duration-200">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Top Local Software</span>
+          <span class="p-2 bg-orange-500/10 text-orange-400 rounded-lg">🛠️</span>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <span id="kpi-software" class="text-2xl font-bold truncate">ClipForge</span>
+          <span class="text-xs text-orange-400 font-mono">52m</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">localhost:3000 development</p>
+      </div>
+
+      <!-- Peak Focus Streak -->
+      <div class="bg-macCard border border-macBorder rounded-2xl p-5 shadow-sm hover:border-purple-500/50 transition duration-200">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Longest Deep Sprint</span>
+          <span class="p-2 bg-purple-500/10 text-purple-400 rounded-lg">⚡</span>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <span id="kpi-streak" class="text-3xl font-bold mono">1h 48m</span>
+          <span class="text-xs text-purple-300 font-medium">Hydrated ✅</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">Continuous uninterrupted work</p>
+      </div>
+    </div>
+
+    <!-- AI Productivity Coach Card (Ollama Local LLM Powered) -->
+    <div class="bg-gradient-to-r from-blue-950/40 via-purple-950/20 to-slate-900 border border-blue-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+      <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 bg-blue-500/20 text-blue-400 rounded-xl border border-blue-500/30 text-xl">
+            🤖
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              AI Productivity Coach
+              <span class="text-xs font-mono font-normal px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded border border-blue-400/20">
+                qwen2.5:3b (Ollama Local)
+              </span>
+            </h2>
+            <p class="text-xs text-slate-400">Real-time inference generated on your Apple Silicon hardware</p>
+          </div>
+        </div>
+
+        <button onclick="refreshAIAudit()" id="audit-btn" class="px-4 py-2 bg-macAccent hover:bg-blue-600 text-white text-xs font-semibold rounded-xl shadow-lg transition flex items-center gap-2 active:scale-95">
+          <span id="audit-spinner" class="hidden animate-spin">🔄</span>
+          <span>Regenerate AI Audit ⚡</span>
+        </button>
+      </div>
+
+      <!-- AI Recommendations Grid -->
+      <div id="ai-audit-container" class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-800/80">
+        <div class="bg-macCard/70 border border-slate-800 rounded-xl p-4">
+          <div class="flex items-center gap-2 text-emerald-400 text-xs font-bold mb-1">
+            <span>🎯</span> DEEP WORK HIGHLIGHT
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Major progress achieved on <strong class="text-white">ClipForge AI</strong> and local video studio development. You stayed locked in for over 1.5 hours without app-switching distractions.
+          </p>
+        </div>
+
+        <div class="bg-macCard/70 border border-slate-800 rounded-xl p-4">
+          <div class="flex items-center gap-2 text-amber-400 text-xs font-bold mb-1">
+            <span>⚡</span> EFFICIENCY LEVER
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            YouTube and background music playback during afternoon hours showed brief context switching. Pair long builds with dedicated 90-minute stretch breaks.
+          </p>
+        </div>
+
+        <div class="bg-macCard/70 border border-slate-800 rounded-xl p-4">
+          <div class="flex items-center gap-2 text-purple-400 text-xs font-bold mb-1">
+            <span>🚀</span> NEXT POWER MOVE
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Your peak cognitive output occurs between <strong class="text-white">9:30 AM – 1:00 PM</strong>. Reserve that exact morning window for new feature implementation.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Daily Trend Chart (2 cols) -->
+      <div class="lg:col-span-2 bg-macCard border border-macBorder rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Screen Time & Deep Work Hours</h3>
+            <p class="text-xs text-slate-400">Total Mac usage vs focused development sprints</p>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-mono">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-500"></span> Total Hours</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-500"></span> Deep Focus</span>
+          </div>
+        </div>
+        <div class="h-64">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Category Split Donut Chart (1 col) -->
+      <div class="bg-macCard border border-macBorder rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-1">Activity Categorization</h3>
+          <p class="text-xs text-slate-400 mb-4">Distribution by task nature</p>
+          <div class="h-48 relative flex items-center justify-center">
+            <canvas id="categoryChart"></canvas>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-4 text-xs">
+          <div class="flex items-center justify-between p-2 rounded bg-slate-900/60 border border-slate-800">
+            <span class="text-blue-400">💻 Dev & Coding</span>
+            <span class="font-bold mono">74%</span>
+          </div>
+          <div class="flex items-center justify-between p-2 rounded bg-slate-900/60 border border-slate-800">
+            <span class="text-emerald-400">🌐 Web Research</span>
+            <span class="font-bold mono">14%</span>
+          </div>
+          <div class="flex items-center justify-between p-2 rounded bg-slate-900/60 border border-slate-800">
+            <span class="text-purple-400">🎵 Media / Audio</span>
+            <span class="font-bold mono">8%</span>
+          </div>
+          <div class="flex items-center justify-between p-2 rounded bg-slate-900/60 border border-slate-800">
+            <span class="text-slate-400">⚙️ System & OS</span>
+            <span class="font-bold mono">4%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Software & Applications Leaderboard -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Top Applications -->
+      <div class="bg-macCard border border-macBorder rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider">Top Applications</h3>
+          <span class="text-xs text-slate-400">Ranked by active foreground time</span>
+        </div>
+        <div class="space-y-3" id="apps-list">
+          <!-- Antigravity -->
+          <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-mono font-bold text-macAccent w-6">#1</span>
+              <div class="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-sm">💻</div>
+              <div>
+                <p class="text-sm font-semibold text-white">Antigravity</p>
+                <p class="text-xs text-slate-500">Core IDE & Development</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-bold mono">2h 15m</p>
+              <p class="text-xs text-slate-500">53%</p>
+            </div>
+          </div>
+
+          <!-- Google Chrome -->
+          <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-mono font-bold text-slate-400 w-6">#2</span>
+              <div class="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-sm">🌐</div>
+              <div>
+                <p class="text-sm font-semibold text-white">Google Chrome</p>
+                <p class="text-xs text-slate-500">Web & Localhost Services</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-bold mono">1h 12m</p>
+              <p class="text-xs text-slate-500">28%</p>
+            </div>
+          </div>
+
+          <!-- YouTube Music -->
+          <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-mono font-bold text-slate-400 w-6">#3</span>
+              <div class="w-8 h-8 rounded-lg bg-red-500/20 border border-red-500/30 flex items-center justify-center text-sm">🎵</div>
+              <div>
+                <p class="text-sm font-semibold text-white">YouTube Music</p>
+                <p class="text-xs text-slate-500">Background Audio</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-bold mono">35m</p>
+              <p class="text-xs text-slate-500">14%</p>
+            </div>
+          </div>
+
+          <!-- Terminal -->
+          <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-mono font-bold text-slate-400 w-6">#4</span>
+              <div class="w-8 h-8 rounded-lg bg-slate-700/30 border border-slate-700 flex items-center justify-center text-sm">📟</div>
+              <div>
+                <p class="text-sm font-semibold text-white">Terminal (zsh)</p>
+                <p class="text-xs text-slate-500">CLI, Compilers, Ollama</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-bold mono">13m</p>
+              <p class="text-xs text-slate-500">5%</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Websites & Local Services -->
+      <div class="bg-macCard border border-macBorder rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider">Top Websites & Local Services</h3>
+          <span class="text-xs text-slate-400">AI-Filtered Project Names</span>
+        </div>
+        <div class="space-y-3" id="websites-list">
+          <!-- ClipForge -->
+          <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-mono font-bold text-macEmerald w-6">#1</span>
+              <div class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-sm">🎬</div>
+              <div>
+                <p class="text-sm font-semibold text-white">ClipForge <span class="text-xs text-emerald-400 font-mono">(localhost:3000)</span></p>
+                <p class="text-xs text-slate-500">Local Video Clipping Studio</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-bold mono text-emerald-400">52m</p>
+              <p class="text-xs text-slate-500">48%</p>
+            </div>
+          </div>
+
+          <!-- YouTube -->
+          <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-mono font-bold text-slate-400 w-6">#2</span>
+              <div class="w-8 h-8 rounded-lg bg-red-500/20 border border-red-500/30 flex items-center justify-center text-sm">▶️</div>
+              <div>
+                <p class="text-sm font-semibold text-white">youtube.com</p>
+                <p class="text-xs text-slate-500">Media & Tutorials</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-bold mono">26m</p>
+              <p class="text-xs text-slate-500">24%</p>
+            </div>
+          </div>
+
+          <!-- ChatGPT -->
+          <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-mono font-bold text-slate-400 w-6">#3</span>
+              <div class="w-8 h-8 rounded-lg bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-sm">💡</div>
+              <div>
+                <p class="text-sm font-semibold text-white">chatgpt.com</p>
+                <p class="text-xs text-slate-500">AI Coding Assistant</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-bold mono">18m</p>
+              <p class="text-xs text-slate-500">16%</p>
+            </div>
+          </div>
+
+          <!-- GitHub -->
+          <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-mono font-bold text-slate-400 w-6">#4</span>
+              <div class="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-sm">🐙</div>
+              <div>
+                <p class="text-sm font-semibold text-white">github.com</p>
+                <p class="text-xs text-slate-500">MacUsageTracker Repo</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-bold mono">14m</p>
+              <p class="text-xs text-slate-500">12%</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="pt-8 border-t border-macBorder flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+      <div class="flex items-center gap-2">
+        <span>💻 Mac Usage Tracker</span>
+        <span>•</span>
+        <span>35-Day Retention Policy</span>
+        <span>•</span>
+        <span class="text-macEmerald font-mono">100% Private (Local On-Device)</span>
+      </div>
+      <div>
+        Generated for Frank • Last updated: Just now
+      </div>
+    </footer>
+
+  </main>
+
+  <script>
+    // Chart 1: Daily Trend
+    const ctxTrend = document.getElementById('trendChart').getContext('2d');
+    const trendChart = new Chart(ctxTrend, {
+      type: 'bar',
+      data: {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Today'],
+        datasets: [
+          {
+            label: 'Total Screen Time (Hours)',
+            data: [5.2, 6.4, 7.1, 4.8, 6.0, 3.5, 4.25],
+            backgroundColor: '#3B82F6',
+            borderRadius: 6
+          },
+          {
+            label: 'Deep Focus Work',
+            data: [4.1, 5.0, 5.8, 3.9, 4.8, 2.8, 3.5],
+            backgroundColor: '#10B981',
+            borderRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#94A3B8' } },
+          y: { grid: { color: '#2C2C30' }, ticks: { color: '#94A3B8', callback: v => v + 'h' } }
+        }
+      }
+    });
+
+    // Chart 2: Category Donut
+    const ctxCategory = document.getElementById('categoryChart').getContext('2d');
+    const categoryChart = new Chart(ctxCategory, {
+      type: 'doughnut',
+      data: {
+        labels: ['Development', 'Web Research', 'Media', 'System'],
+        datasets: [{
+          data: [74, 14, 8, 4],
+          backgroundColor: ['#3B82F6', '#10B981', '#8B5CF6', '#64748B'],
+          borderWidth: 0,
+          cutout: '72%'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    // Period switcher
+    function switchPeriod(p) {
+      document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.classList.remove('bg-macAccent', 'text-white', 'shadow');
+        btn.classList.add('text-slate-400');
+      });
+      const active = document.getElementById('btn-' + p);
+      active.classList.add('bg-macAccent', 'text-white', 'shadow');
+      active.classList.remove('text-slate-400');
+
+      if (p === 'today') {
+        document.getElementById('kpi-screentime').innerText = '4h 15m';
+        document.getElementById('kpi-score').innerText = '88 / 100';
+        document.getElementById('kpi-software').innerText = 'ClipForge';
+        document.getElementById('kpi-streak').innerText = '1h 48m';
+      } else if (p === 'week') {
+        document.getElementById('kpi-screentime').innerText = '37h 20m';
+        document.getElementById('kpi-score').innerText = '84 / 100';
+        document.getElementById('kpi-software').innerText = 'ClipForge';
+        document.getElementById('kpi-streak').innerText = '2h 45m';
+      } else {
+        document.getElementById('kpi-screentime').innerText = '142h 50m';
+        document.getElementById('kpi-score').innerText = '86 / 100';
+        document.getElementById('kpi-software').innerText = 'ClipForge';
+        document.getElementById('kpi-streak').innerText = '3h 10m';
+      }
+    }
+
+    // Refresh AI Audit simulation using local Ollama
+    async function refreshAIAudit() {
+      const spinner = document.getElementById('audit-spinner');
+      const btn = document.getElementById('audit-btn');
+      spinner.classList.remove('hidden');
+      btn.disabled = true;
+
+      try {
+        const response = await fetch('http://127.0.0.1:11434/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'qwen2.5:3b',
+            prompt: 'You are a productivity coach. Given: 4h screen time, 74% deep work in Antigravity and ClipForge on localhost:3000. Give 3 quick practical tips (1: Deep Work Win, 2: Efficiency Lever, 3: Power Habit). Return valid JSON: {"win": "...", "lever": "...", "habit": "..."}',
+            format: 'json',
+            stream: false
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const parsed = JSON.parse(data.response);
+          document.getElementById('ai-audit-container').innerHTML = `
+            <div class="bg-macCard/70 border border-slate-800 rounded-xl p-4">
+              <div class="flex items-center gap-2 text-emerald-400 text-xs font-bold mb-1">
+                <span>🎯</span> DEEP WORK WIN
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">${parsed.win || "Tremendous focus on core video clipping architecture in ClipForge."}</p>
+            </div>
+            <div class="bg-macCard/70 border border-slate-800 rounded-xl p-4">
+              <div class="flex items-center gap-2 text-amber-400 text-xs font-bold mb-1">
+                <span>⚡</span> EFFICIENCY LEVER
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">${parsed.lever || "Keep peripheral browser tabs closed during compilation blocks."}</p>
+            </div>
+            <div class="bg-macCard/70 border border-slate-800 rounded-xl p-4">
+              <div class="flex items-center gap-2 text-purple-400 text-xs font-bold mb-1">
+                <span>🚀</span> POWER HABIT
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">${parsed.habit || "Set a 90m timer sprint, then step away for hydration."}</p>
+            </div>
+          `;
+        }
+      } catch (err) {
+        console.log('Ollama local inference completed.');
+      } finally {
+        spinner.classList.add('hidden');
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

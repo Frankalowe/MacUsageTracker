@@ -104,45 +104,12 @@ public final class UsageTrackerEngine: ObservableObject {
             return hostWithPort
         }
         
-        var cleanTitle = rawTitle
-        // Strip badge counters e.g. (1) or (99+)
-        if cleanTitle.hasPrefix("(") && cleanTitle.contains(")") {
-            if let closeParen = cleanTitle.firstIndex(of: ")") {
-                let prefix = cleanTitle[..<closeParen]
-                if prefix.dropFirst().allSatisfy({ $0.isNumber || $0 == "+" }) {
-                    cleanTitle = cleanTitle[cleanTitle.index(after: closeParen)...].trimmingCharacters(in: .whitespaces)
-                }
-            }
+        let cleanService = LocalLLMService.shared.cleanServiceNameHeuristic(rawTitle)
+        if !cleanService.isEmpty && cleanService.lowercased() != cleanHost && cleanService.lowercased() != hostWithPort && !cleanService.hasPrefix("http") {
+            return "\(cleanService) (\(hostWithPort))"
         }
         
-        // Strip common browser title suffixes
-        let suffixes = [" - Google Chrome", " - Brave", " - Safari", " - Arc", " - Microsoft Edge"]
-        for suffix in suffixes {
-            if cleanTitle.hasSuffix(suffix) {
-                cleanTitle = String(cleanTitle.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
-            }
-        }
-        
-        // Strip long tagline suffixes like " – Tagline", " — Tagline", " | Tagline", " - Tagline"
-        for separator in [" – ", " — ", " | ", " - "] {
-            if let sepRange = cleanTitle.range(of: separator) {
-                let prefix = String(cleanTitle[..<sepRange.lowerBound]).trimmingCharacters(in: .whitespaces)
-                if !prefix.isEmpty && prefix.count >= 2 {
-                    cleanTitle = prefix
-                    break
-                }
-            }
-        }
-        
-        if cleanTitle.count > 30 {
-            cleanTitle = String(cleanTitle.prefix(28)) + "…"
-        }
-        
-        if cleanTitle.isEmpty || cleanTitle.lowercased() == cleanHost || cleanTitle.lowercased() == hostWithPort || cleanTitle.hasPrefix("http") {
-            return hostWithPort
-        }
-        
-        return "\(cleanTitle) (\(hostWithPort))"
+        return hostWithPort
     }
     
     private func restoreActiveSessionIfAvailable(fallbackNow: Date) {

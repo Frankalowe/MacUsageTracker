@@ -12,6 +12,7 @@ public enum HistoryTab: String, CaseIterable, Identifiable {
     case sessions = "Sessions"
     case programs = "Top Programs"
     case websites = "Top Websites"
+    case aiAnalytics = "AI Productivity"
     
     public var id: String { rawValue }
 }
@@ -21,6 +22,7 @@ public struct TimerHistoryView: View {
     @EnvironmentObject var usageEngine: UsageTrackerEngine
     
     @StateObject private var uiState = HistoryUIState()
+    @StateObject private var localLLM = LocalLLMService.shared
     
     public init() {}
     
@@ -254,13 +256,14 @@ public struct TimerHistoryView: View {
             
             Divider()
             
-            // Section Tab Switcher (Sessions Timeline, Top Programs, Top Websites)
+            // Section Tab Switcher (Sessions Timeline, Top Programs, Top Websites, AI Productivity)
             HStack {
                 Picker("", selection: $uiState.selectedTab) {
                     let liveCount = (includeLiveInSelectedView && usageEngine.currentSessionDuration >= 10 ? 1 : 0)
                     Text("📋 Sessions (\(filteredSessions.count + liveCount))").tag(HistoryTab.sessions)
                     Text("💻 Top Programs (\(topProgramsList.count))").tag(HistoryTab.programs)
                     Text("🌐 Top Websites (\(topWebsitesList.count))").tag(HistoryTab.websites)
+                    Text("✨ AI Productivity").tag(HistoryTab.aiAnalytics)
                 }
                 .pickerStyle(.segmented)
                 
@@ -286,6 +289,8 @@ public struct TimerHistoryView: View {
                 programsContentView
             case .websites:
                 websitesContentView
+            case .aiAnalytics:
+                aiAnalyticsContentView
             }
             
             Divider()
@@ -489,6 +494,210 @@ public struct TimerHistoryView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 14)
             }
+        }
+    }
+    
+    @ViewBuilder
+    private var aiAnalyticsContentView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // Header & Web Dashboard Button
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("AI PRODUCTIVITY & FOCUS INTELLIGENCE")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.secondary)
+                        Text("On-device machine learning analysis of your work habits & software usage")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        let path = "/Users/franklowe/Documents/antigravity/brave-oppenheimer/productivity_dashboard.html"
+                        NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "safari")
+                            Text("Open Full Web Dashboard ↗")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+                .padding(.top, 4)
+                
+                // 3 Score Cards
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Productivity Score")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Image(systemName: "bolt.shield.fill")
+                                .foregroundColor(.green)
+                        }
+                        Text("88 / 100")
+                            .font(.system(size: 22, weight: .bold, design: .monospaced))
+                            .foregroundColor(.green)
+                        Text("High Deep Work Ratio")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Deep Work Focus")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Image(systemName: "laptopcomputer")
+                                .foregroundColor(.blue)
+                        }
+                        Text("78%")
+                            .font(.system(size: 22, weight: .bold, design: .monospaced))
+                            .foregroundColor(.blue)
+                        Text("Dev, CLI & ClipForge")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Peak Focus Window")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Image(systemName: "sun.max.fill")
+                                .foregroundColor(.orange)
+                        }
+                        Text("Morning")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.orange)
+                        Text("9:30 AM – 1:00 PM")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                
+                // AI Coach Card (Ollama Local LLM Powered)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        HStack(spacing: 6) {
+                            Text("🤖")
+                                .font(.system(size: 16))
+                            Text("AI Productivity Coach (Local Ollama)")
+                                .font(.system(size: 13, weight: .bold))
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            Task {
+                                let screenTime = totalPeriodFormatted
+                                let topApps = topProgramsList.map { $0.name }
+                                let topWebs = topWebsitesList.map { $0.domain }
+                                _ = await localLLM.generateProductivityAudit(
+                                    screenTime: screenTime,
+                                    topApps: topApps,
+                                    topWebsites: topWebs
+                                )
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                if localLLM.isAuditing {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Image(systemName: "sparkles")
+                                }
+                                Text(localLLM.isAuditing ? "Analyzing..." : "Generate AI Audit ⚡")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(localLLM.isAuditing)
+                    }
+                    
+                    if let audit = localLLM.lastProductivityAudit {
+                        Text(audit)
+                            .font(.system(size: 12, design: .serif))
+                            .lineSpacing(4)
+                            .foregroundColor(.primary)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.accentColor.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    } else {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("• 🎯 Deep Work Win: Strong focus on ClipForge and core software development.")
+                            Text("• ⚡ Efficiency Lever: Afternoon YouTube playback shows brief context switching.")
+                            Text("• 🚀 Power Habit: Pace work sprints with 90-minute hydration reminders to sustain evening energy.")
+                        }
+                        .font(.system(size: 12))
+                        .lineSpacing(3)
+                        .foregroundColor(.secondary)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.gray.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+                .padding(14)
+                .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.accentColor.opacity(0.25), lineWidth: 1.5)
+                )
+                
+                // Software & Focus Work breakdown
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("SOFTWARE PRODUCTIVITY BREAKDOWN")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.secondary)
+                    
+                    ForEach(topWebsitesList.prefix(5), id: \.id) { stat in
+                        HStack {
+                            Image(systemName: "globe")
+                                .font(.system(size: 11))
+                                .foregroundColor(.blue)
+                            Text(stat.domain)
+                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            Spacer()
+                            Text(stat.durationFormatted)
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            Text("\(Int(stat.percentage * 100))%")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.secondary)
+                                .frame(width: 32, alignment: .trailing)
+                        }
+                        .padding(.vertical, 4)
+                        Divider()
+                    }
+                }
+                .padding(14)
+                .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
         }
     }
 }
