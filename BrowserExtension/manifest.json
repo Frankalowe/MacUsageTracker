@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Mac Usage Tracker Companion",
+  "version": "1.0.0",
+  "description": "Companion extension for Mac Usage Tracker that accurately syncs active browser domains.",
+  "permissions": [
+    "tabs"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Mac Usage Tracker Companion"
+  }
+}

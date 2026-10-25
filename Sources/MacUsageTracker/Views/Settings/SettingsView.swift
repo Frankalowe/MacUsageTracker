@@ -108,9 +108,35 @@ public struct SettingsView: View {
                     }
                     .padding(.vertical, 4)
                 }
+                
+                Section("Website Tracking (Brave, Chrome, Safari, Edge, Arc)") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Websites are tracked natively via macOS Automation. For 100% precision without permission prompts, you can also use the companion extension:")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        
+                        HStack(spacing: 8) {
+                            Button("macOS Automation Settings ↗") {
+                                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            
+                            Button("Show Browser Extension Folder ↗") {
+                                let extPath = "/Users/franklowe/Documents/antigravity/brave-oppenheimer/BrowserExtension"
+                                NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: extPath)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
             }
             .formStyle(.grouped)
         }
-        .frame(width: 480, height: 440)
+        .frame(width: 500, height: 500)
     }
 }

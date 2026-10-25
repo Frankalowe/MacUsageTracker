@@ -44,6 +44,8 @@ cat << 'EOF' > "${APP_BUNDLE}/Contents/Info.plist"
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Mac Usage Tracker uses Apple Events to detect the active website domain in your browser for screen time analytics.</string>
 </dict>
 </plist>
 EOF

@@ -19,6 +19,19 @@ public final class UsageTrackerEngine: ObservableObject {
     private var lastBrowserDomainCheckTime: TimeInterval = 0
     private var cachedBrowserDomain: String? = nil
     private var lastStateSaveTime: TimeInterval = 0
+    private var lastExtensionReportTime: TimeInterval = 0
+    private var extensionReportedDomain: String? = nil
+    
+    private let recognizedBrowserBundleIDs: [String: String] = [
+        "com.brave.Browser": "Brave Browser",
+        "com.google.Chrome": "Google Chrome",
+        "com.apple.Safari": "Safari",
+        "company.thebrowser.Browser": "Arc",
+        "com.microsoft.edgemac": "Microsoft Edge",
+        "org.chromium.Chromium": "Chromium",
+        "com.vivaldi.Vivaldi": "Vivaldi",
+        "com.kagi.kagimacOS": "Orion"
+    ]
     
     // Notification interval milestones
     public var lastQuoteIntervalIndex: Int = 0       // 60-minute interval tracker
@@ -35,8 +48,20 @@ public final class UsageTrackerEngine: ObservableObject {
         // Restore running session seamlessly if recovering from app update/restart
         restoreActiveSessionIfAvailable(fallbackNow: now)
         
+        // Start local receiver for optional browser companion extension
+        BrowserExtensionServer.shared.start()
+        
         startTimer()
         setupSystemObservers()
+    }
+    
+    /// Called when the companion browser extension reports the active tab domain
+    public func handleDomainReportedFromExtension(_ domain: String) {
+        guard isAwake else { return }
+        self.extensionReportedDomain = domain
+        self.lastExtensionReportTime = Date().timeIntervalSince1970
+        self.currentWebsiteDomain = domain
+        self.liveWebsiteUsage[domain, default: 0] += 1
     }
     
     private func restoreActiveSessionIfAvailable(fallbackNow: Date) {
@@ -185,10 +210,18 @@ public final class UsageTrackerEngine: ObservableObject {
             self.currentFrontmostApp = frontApp
             liveAppUsage[frontApp, default: 0] += 1
             
-            // Track active website domain if frontmost app is a recognized browser
-            let browserNames = ["Google Chrome", "Safari", "Brave Browser", "Microsoft Edge", "Arc", "Chromium"]
-            if browserNames.contains(frontApp) {
-                if let domain = sampleBrowserDomain(appName: frontApp) {
+            // Check if frontmost application is a recognized browser
+            let bundleId = frontmost.bundleIdentifier ?? ""
+            let isBrowser = recognizedBrowserBundleIDs.keys.contains(bundleId) ||
+                ["Google Chrome", "Safari", "Brave Browser", "Microsoft Edge", "Arc", "Chromium", "Brave", "Chrome"].contains(frontApp)
+            
+            if isBrowser {
+                let now = Date().timeIntervalSince1970
+                // 1. If companion browser extension reported domain recently, use it
+                if now - lastExtensionReportTime < 2.0, let extDomain = extensionReportedDomain {
+                    self.currentWebsiteDomain = extDomain
+                } else if let domain = sampleBrowserDomain(bundleId: bundleId, appName: frontApp) {
+                    // 2. Otherwise query via native AppleScript
                     self.currentWebsiteDomain = domain
                     liveWebsiteUsage[domain, default: 0] += 1
                 } else {
@@ -210,7 +243,7 @@ public final class UsageTrackerEngine: ObservableObject {
     }
     
     /// Queries the active tab domain when a browser is in focus, sampling every 2s for zero overhead.
-    private func sampleBrowserDomain(appName: String) -> String? {
+    private func sampleBrowserDomain(bundleId: String, appName: String) -> String? {
         let now = Date().timeIntervalSince1970
         if now - lastBrowserDomainCheckTime < 2.0 {
             return cachedBrowserDomain
@@ -218,13 +251,11 @@ public final class UsageTrackerEngine: ObservableObject {
         lastBrowserDomainCheckTime = now
         
         let scriptSource: String
-        if appName == "Safari" {
-            scriptSource = "if application \"Safari\" is running then tell application \"Safari\" to return URL of front document"
-        } else if ["Google Chrome", "Brave Browser", "Microsoft Edge", "Arc", "Chromium"].contains(appName) {
-            scriptSource = "if application \"\(appName)\" is running then tell application \"\(appName)\" to return URL of active tab of front window"
+        if bundleId == "com.apple.Safari" || appName == "Safari" {
+            scriptSource = "tell application id \"com.apple.Safari\" to return URL of front document"
         } else {
-            cachedBrowserDomain = nil
-            return nil
+            let target = bundleId.isEmpty ? "application \"\(appName)\"" : "application id \"\(bundleId)\""
+            scriptSource = "tell \(target) to return URL of active tab of front window"
         }
         
         guard let script = NSAppleScript(source: scriptSource) else {
@@ -234,10 +265,13 @@ public final class UsageTrackerEngine: ObservableObject {
         
         var errorInfo: NSDictionary?
         let descriptor = script.executeAndReturnError(&errorInfo)
-        if errorInfo == nil, let urlString = descriptor.stringValue, let url = URL(string: urlString), let host = url.host {
-            let domain = host.lowercased().hasPrefix("www.") ? String(host.dropFirst(4)) : host.lowercased()
-            cachedBrowserDomain = domain
-            return domain
+        if errorInfo == nil, let raw = descriptor.stringValue, !raw.isEmpty {
+            let urlString = raw.contains("://") ? raw : "https://" + raw
+            if let url = URL(string: urlString), let host = url.host, !host.isEmpty {
+                let domain = host.lowercased().hasPrefix("www.") ? String(host.dropFirst(4)) : host.lowercased()
+                cachedBrowserDomain = domain
+                return domain
+            }
         }
         
         cachedBrowserDomain = nil
