@@ -5,17 +5,43 @@ public struct UsageSession: Identifiable, Codable, Equatable, Sendable {
     public let startTime: Date             // When the Mac turned on or woke up
     public var endTime: Date               // When the Mac slept or shut down
     public var durationSeconds: Int        // Total duration in seconds
+    public var appUsage: [String: Int]     // App name -> seconds spent
+    public var websiteUsage: [String: Int] // Domain -> seconds spent
 
     public init(
         id: UUID = UUID(),
         startTime: Date = Date(),
         endTime: Date = Date(),
-        durationSeconds: Int = 0
+        durationSeconds: Int = 0,
+        appUsage: [String: Int] = [:],
+        websiteUsage: [String: Int] = [:]
     ) {
         self.id = id
         self.startTime = startTime
         self.endTime = endTime
         self.durationSeconds = durationSeconds
+        self.appUsage = appUsage
+        self.websiteUsage = websiteUsage
+    }
+    
+    // Backwards-compatible decoding
+    enum CodingKeys: String, CodingKey {
+        case id
+        case startTime
+        case endTime
+        case durationSeconds
+        case appUsage
+        case websiteUsage
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = (try? container.decode(UUID.self, forKey: .id)) ?? UUID()
+        self.startTime = (try? container.decode(Date.self, forKey: .startTime)) ?? Date()
+        self.endTime = (try? container.decode(Date.self, forKey: .endTime)) ?? Date()
+        self.durationSeconds = (try? container.decode(Int.self, forKey: .durationSeconds)) ?? 0
+        self.appUsage = (try? container.decode([String: Int].self, forKey: .appUsage)) ?? [:]
+        self.websiteUsage = (try? container.decode([String: Int].self, forKey: .websiteUsage)) ?? [:]
     }
 
     // MARK: - Formatting Helpers
@@ -118,5 +144,55 @@ public struct DayUsageSummary: Identifiable, Sendable {
         self.isToday = isToday
         self.sessionCount = sessionCount
         self.totalSeconds = totalSeconds
+    }
+}
+
+public struct AppUsageStat: Identifiable, Sendable, Equatable {
+    public var id: String { name }
+    public let name: String
+    public let durationSeconds: Int
+    public let percentage: Double // 0.0 ... 1.0
+
+    public var durationFormatted: String {
+        let hours = durationSeconds / 3600
+        let minutes = (durationSeconds % 3600) / 60
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else if minutes > 0 {
+            return "\(minutes)m"
+        } else {
+            return "\(durationSeconds)s"
+        }
+    }
+
+    public init(name: String, durationSeconds: Int, percentage: Double) {
+        self.name = name
+        self.durationSeconds = durationSeconds
+        self.percentage = percentage
+    }
+}
+
+public struct WebsiteUsageStat: Identifiable, Sendable, Equatable {
+    public var id: String { domain }
+    public let domain: String
+    public let durationSeconds: Int
+    public let percentage: Double // 0.0 ... 1.0
+
+    public var durationFormatted: String {
+        let hours = durationSeconds / 3600
+        let minutes = (durationSeconds % 3600) / 60
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else if minutes > 0 {
+            return "\(minutes)m"
+        } else {
+            return "\(durationSeconds)s"
+        }
+    }
+
+    public init(domain: String, durationSeconds: Int, percentage: Double) {
+        self.domain = domain
+        self.durationSeconds = durationSeconds
+        self.percentage = percentage
     }
 }

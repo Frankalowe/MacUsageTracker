@@ -1,10 +1,20 @@
 import SwiftUI
+import AppKit
 
 @MainActor
 final class HistoryUIState: ObservableObject {
     @Published var selectedPeriodDays: Int = 35 // Default: 35 days for full month analysis
     @Published var selectedDateKey: String? = nil
     @Published var showingClearConfirmation: Bool = false
+    @Published var selectedTab: HistoryTab = .sessions
+}
+
+public enum HistoryTab: String, CaseIterable, Identifiable {
+    case sessions = "Sessions"
+    case programs = "Top Programs"
+    case websites = "Top Websites"
+    
+    public var id: String { rawValue }
 }
 
 public struct TimerHistoryView: View {
@@ -17,6 +27,16 @@ public struct TimerHistoryView: View {
     
     private var allPeriodSessions: [UsageSession] {
         dataManager.sessionsInLastDays(days: uiState.selectedPeriodDays)
+    }
+    
+    private var todayDateKey: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+    
+    private var includeLiveInSelectedView: Bool {
+        uiState.selectedDateKey == nil || uiState.selectedDateKey == todayDateKey
     }
     
     private var filteredSessions: [UsageSession] {
@@ -76,6 +96,22 @@ public struct TimerHistoryView: View {
         }
     }
     
+    private var topProgramsList: [AppUsageStat] {
+        dataManager.topPrograms(
+            sessions: filteredSessions,
+            limit: 20,
+            liveAppUsage: includeLiveInSelectedView ? usageEngine.liveAppUsage : [:]
+        )
+    }
+    
+    private var topWebsitesList: [WebsiteUsageStat] {
+        dataManager.topWebsites(
+            sessions: filteredSessions,
+            limit: 20,
+            liveWebsiteUsage: includeLiveInSelectedView ? usageEngine.liveWebsiteUsage : [:]
+        )
+    }
+    
     public var body: some View {
         VStack(spacing: 0) {
             // Header Bar
@@ -94,7 +130,7 @@ public struct TimerHistoryView: View {
                             .clipShape(Capsule())
                     }
                     
-                    Text("Auto-recorded wake-to-sleep periods • Stored for 35 days for full monthly work analysis")
+                    Text("Auto-recorded wake-to-sleep periods • Programs & websites tracked live • Retained for 35 days")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
@@ -137,32 +173,43 @@ public struct TimerHistoryView: View {
             
             Divider()
             
-            // Metrics Cards
-            HStack(spacing: 14) {
+            // 4 Overview Metric Cards
+            HStack(spacing: 12) {
                 MetricCard(
                     title: "Total Screen Time (\(uiState.selectedPeriodDays)d)",
                     value: totalPeriodFormatted,
+                    subtitle: "\(allPeriodSessions.count + (usageEngine.currentSessionDuration >= 30 ? 1 : 0)) sessions",
                     icon: "laptopcomputer",
                     color: .accentColor
                 )
                 
                 MetricCard(
-                    title: "Sessions Used (\(uiState.selectedPeriodDays)d)",
-                    value: "\(allPeriodSessions.count)",
-                    icon: "bolt.badge.clock.fill",
-                    color: .green
+                    title: "Top Program",
+                    value: topProgramsList.first?.name ?? "—",
+                    subtitle: topProgramsList.first?.durationFormatted ?? "No apps yet",
+                    icon: "app.badge.checkmark",
+                    color: .orange
                 )
                 
                 MetricCard(
-                    title: "Active Daily Average",
+                    title: "Top Website",
+                    value: topWebsitesList.first?.domain ?? "—",
+                    subtitle: topWebsitesList.first?.durationFormatted ?? "No browser data",
+                    icon: "globe",
+                    color: .blue
+                )
+                
+                MetricCard(
+                    title: "Daily Average",
                     value: dailyAverageFormatted,
+                    subtitle: "\(dailySummaries.filter { $0.totalSeconds > 0 }.count) active days",
                     icon: "chart.line.uptrend.xyaxis",
                     color: .purple
                 )
             }
             .padding(.horizontal, 20)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
             
             // Daily Breakdown Strip
             VStack(alignment: .leading, spacing: 6) {
@@ -216,7 +263,7 @@ public struct TimerHistoryView: View {
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
                                         .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
-                                )
+                                 )
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
                             .buttonStyle(.plain)
@@ -230,63 +277,38 @@ public struct TimerHistoryView: View {
             
             Divider()
             
-            // Sessions List or Empty State
-            if filteredSessions.isEmpty {
-                VStack(spacing: 12) {
-                    Spacer()
-                    Image(systemName: "laptopcomputer")
-                        .font(.system(size: 38))
-                        .foregroundColor(.secondary.opacity(0.5))
-                    
-                    Text(allPeriodSessions.isEmpty ? "No sessions recorded yet in the past \(uiState.selectedPeriodDays) days" : "No sessions for this selected day")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.primary)
-                    
-                    Text(allPeriodSessions.isEmpty ? "When you use your MacBook and put it to sleep or shut down, each session (≥ 1 minute) will be saved and retained for 35 days." : "Try selecting a different day.")
-                        .font(.system(size: 11))
+            // Section Tab Switcher (Sessions Timeline, Top Programs, Top Websites)
+            HStack {
+                Picker("", selection: $uiState.selectedTab) {
+                    let liveCount = (includeLiveInSelectedView && usageEngine.currentSessionDuration >= 10 ? 1 : 0)
+                    Text("📋 Sessions (\(filteredSessions.count + liveCount))").tag(HistoryTab.sessions)
+                    Text("💻 Top Programs (\(topProgramsList.count))").tag(HistoryTab.programs)
+                    Text("🌐 Top Websites (\(topWebsitesList.count))").tag(HistoryTab.websites)
+                }
+                .pickerStyle(.segmented)
+                
+                Spacer()
+                
+                if let key = uiState.selectedDateKey {
+                    Text("Filtered: \(key)")
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 360)
-                    
-                    Spacer()
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(NSColor.controlBackgroundColor).opacity(0.4))
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 14) {
-                        ForEach(groupedSessions, id: \.key) { group in
-                            VStack(alignment: .leading, spacing: 8) {
-                                // Day Header
-                                HStack {
-                                    Text(group.title)
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(.primary)
-                                    
-                                    Spacer()
-                                    
-                                    let hours = group.totalSeconds / 3600
-                                    let mins = (group.totalSeconds % 3600) / 60
-                                    let totalStr = hours > 0 ? "\(hours)h \(mins)m" : "\(mins)m"
-                                    Text("\(group.sessions.count) \(group.sessions.count == 1 ? "session" : "sessions") • Total: \(totalStr)")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding(.horizontal, 6)
-                                .padding(.top, 4)
-                                
-                                // Records in this day
-                                VStack(spacing: 6) {
-                                    ForEach(group.sessions) { session in
-                                        SessionRow(session: session)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+            
+            Divider()
+            
+            // Main Content Area based on Selected Tab
+            switch uiState.selectedTab {
+            case .sessions:
+                sessionsContentView
+            case .programs:
+                programsContentView
+            case .websites:
+                websitesContentView
             }
             
             Divider()
@@ -297,7 +319,7 @@ public struct TimerHistoryView: View {
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                 
-                Text("Automatic 35-Day Retention: Sessions are kept for 35 days (full monthly analysis) and purged automatically thereafter.")
+                Text("Automatic 35-Day Retention: Sessions are retained for 35 days for monthly analysis and purged automatically thereafter.")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
                 
@@ -307,7 +329,190 @@ public struct TimerHistoryView: View {
             .padding(.vertical, 8)
             .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(minWidth: 640, minHeight: 650)
+        .frame(minWidth: 640, minHeight: 580)
+    }
+    
+    // MARK: - Tab Views
+    
+    @ViewBuilder
+    private var sessionsContentView: some View {
+        let hasLiveSession = includeLiveInSelectedView && usageEngine.isAwake && usageEngine.currentSessionDuration >= 10
+        let isEmpty = filteredSessions.isEmpty && !hasLiveSession
+        
+        if isEmpty {
+            VStack(spacing: 12) {
+                Spacer()
+                Image(systemName: "laptopcomputer")
+                    .font(.system(size: 38))
+                    .foregroundColor(.secondary.opacity(0.5))
+                
+                Text(allPeriodSessions.isEmpty ? "No sessions recorded yet in the past \(uiState.selectedPeriodDays) days" : "No sessions for this selected day")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                Text(allPeriodSessions.isEmpty ? "When you use your MacBook and put it to sleep or shut down, each session (≥ 1 minute) will be saved and retained for 35 days." : "Try selecting a different day.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 360)
+                
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.4))
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    // Live Currently Running Session Card (if applicable)
+                    if hasLiveSession {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("LIVE CURRENT SESSION")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.green)
+                                Spacer()
+                                Text("Updates every second")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                            ActiveLiveSessionCard(
+                                startTimeFormatted: usageEngine.startTimeFormatted,
+                                liveDurationFormatted: usageEngine.liveTimeString,
+                                frontmostApp: usageEngine.currentFrontmostApp,
+                                websiteDomain: usageEngine.currentWebsiteDomain,
+                                liveAppUsage: usageEngine.liveAppUsage
+                            )
+                        }
+                    }
+                    
+                    // Grouped Historical Sessions
+                    ForEach(groupedSessions, id: \.key) { group in
+                        VStack(alignment: .leading, spacing: 8) {
+                            // Day Header
+                            HStack {
+                                Text(group.title)
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.primary)
+                                
+                                Spacer()
+                                
+                                let hours = group.totalSeconds / 3600
+                                let mins = (group.totalSeconds % 3600) / 60
+                                let totalStr = hours > 0 ? "\(hours)h \(mins)m" : "\(mins)m"
+                                Text("\(group.sessions.count) \(group.sessions.count == 1 ? "session" : "sessions") • Total: \(totalStr)")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.top, 4)
+                            
+                            // Records in this day
+                            VStack(spacing: 8) {
+                                ForEach(group.sessions) { session in
+                                    SessionRow(session: session)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var programsContentView: some View {
+        if topProgramsList.isEmpty {
+            VStack(spacing: 12) {
+                Spacer()
+                Image(systemName: "app.badge.checkmark")
+                    .font(.system(size: 40))
+                    .foregroundColor(.secondary.opacity(0.5))
+                
+                Text("No program activity tracked yet")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                Text("As you use different applications on your Mac, their active foreground time will be recorded and ranked here.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 380)
+                
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.4))
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("RANKED BY ACTIVE SCREEN TIME")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("\(topProgramsList.count) applications tracked")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.bottom, 2)
+                    
+                    ForEach(Array(topProgramsList.enumerated()), id: \.element.id) { index, stat in
+                        ProgramUsageRow(rank: index + 1, stat: stat)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var websitesContentView: some View {
+        if topWebsitesList.isEmpty {
+            VStack(spacing: 12) {
+                Spacer()
+                Image(systemName: "globe")
+                    .font(.system(size: 40))
+                    .foregroundColor(.secondary.opacity(0.5))
+                
+                Text("No website activity tracked yet")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                Text("Website tracking activates automatically whenever you browse using Safari, Google Chrome, Brave Browser, Microsoft Edge, Arc, or Chromium.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 380)
+                
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.4))
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("RANKED BY ACTIVE BROWSING TIME")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("\(topWebsitesList.count) websites tracked")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.bottom, 2)
+                    
+                    ForEach(Array(topWebsitesList.enumerated()), id: \.element.id) { index, stat in
+                        WebsiteUsageRow(rank: index + 1, stat: stat)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+            }
+        }
     }
 }
 
@@ -316,29 +521,37 @@ public struct TimerHistoryView: View {
 private struct MetricCard: View {
     let title: String
     let value: String
+    let subtitle: String
     let icon: String
     let color: Color
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.system(size: 18))
                 .foregroundColor(color)
-                .frame(width: 36, height: 36)
+                .frame(width: 34, height: 34)
                 .background(color.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 9, weight: .medium))
                     .foregroundColor(.secondary)
+                    .lineLimit(1)
                 Text(value)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.primary)
+                    .lineLimit(1)
+                Text(subtitle)
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
-            Spacer()
+            Spacer(minLength: 0)
         }
         .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(NSColor.controlBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
@@ -348,54 +561,370 @@ private struct MetricCard: View {
     }
 }
 
+private struct ActiveLiveSessionCard: View {
+    let startTimeFormatted: String
+    let liveDurationFormatted: String
+    let frontmostApp: String
+    let websiteDomain: String?
+    let liveAppUsage: [String: Int]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                    Text("ACTIVE NOW")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.green)
+                }
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .background(Color.green.opacity(0.12))
+                .clipShape(Capsule())
+                
+                Spacer()
+                
+                Text("Started at \(startTimeFormatted)")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.secondary)
+                
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 10))
+                    Text(liveDurationFormatted)
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(Color.green.opacity(0.15))
+                .foregroundColor(.green)
+                .clipShape(Capsule())
+            }
+            
+            // Current frontmost app & website status
+            HStack(spacing: 12) {
+                if !frontmostApp.isEmpty {
+                    HStack(spacing: 5) {
+                        Image(systemName: "app.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.accentColor)
+                        Text("Active App: \(frontmostApp)")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.accentColor.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                
+                if let domain = websiteDomain, !domain.isEmpty {
+                    HStack(spacing: 5) {
+                        Image(systemName: "globe")
+                            .font(.system(size: 10))
+                            .foregroundColor(.blue)
+                        Text("Website: \(domain)")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.blue.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                
+                Spacer()
+            }
+            
+            // Mini top apps in this active session
+            if !liveAppUsage.isEmpty {
+                let sortedLive = liveAppUsage.sorted { $0.value > $1.value }.prefix(4)
+                HStack(spacing: 6) {
+                    Text("Session Apps:")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.secondary)
+                    
+                    ForEach(Array(sortedLive), id: \.key) { app, secs in
+                        let mins = max(1, secs / 60)
+                        Text("\(app) (\(mins)m)")
+                            .font(.system(size: 9))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.gray.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+                }
+                .padding(.top, 2)
+            }
+        }
+        .padding(12)
+        .background(Color.green.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.green.opacity(0.35), lineWidth: 1.5)
+        )
+    }
+}
+
 private struct SessionRow: View {
     let session: UsageSession
     
     var body: some View {
-        HStack(spacing: 12) {
-            // Icon
-            Image(systemName: "laptopcomputer")
-                .font(.system(size: 13))
-                .foregroundColor(.accentColor)
-                .frame(width: 28, height: 28)
-                .background(Color.accentColor.opacity(0.12))
-                .clipShape(Circle())
-            
-            // Time Range ("When")
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(session.timeRangeFormatted)
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.primary)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                // Icon
+                Image(systemName: "laptopcomputer")
+                    .font(.system(size: 13))
+                    .foregroundColor(.accentColor)
+                    .frame(width: 28, height: 28)
+                    .background(Color.accentColor.opacity(0.12))
+                    .clipShape(Circle())
+                
+                // Time Range ("When")
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(session.timeRangeFormatted)
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.primary)
+                    }
+                    
+                    Text(session.dateFormatted)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
                 }
                 
-                Text(session.dateFormatted)
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
+                Spacer()
+                
+                // Duration Badge ("How long")
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 9))
+                    Text(session.durationFormatted)
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(Color.accentColor.opacity(0.12))
+                .foregroundColor(.accentColor)
+                .clipShape(Capsule())
             }
             
-            Spacer()
+            // Program & Website breakdown chips for this session
+            let topApps = session.appUsage.sorted { $0.value > $1.value }.prefix(3)
+            let topWebs = session.websiteUsage.sorted { $0.value > $1.value }.prefix(2)
             
-            // Duration Badge ("How long")
-            HStack(spacing: 4) {
-                Image(systemName: "clock")
-                    .font(.system(size: 9))
-                Text(session.durationFormatted)
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+            if !topApps.isEmpty || !topWebs.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(Array(topApps), id: \.key) { app, secs in
+                        let mins = max(1, secs / 60)
+                        HStack(spacing: 3) {
+                            Image(systemName: "app.fill")
+                                .font(.system(size: 8))
+                                .foregroundColor(.secondary)
+                            Text("\(app) \(mins)m")
+                                .font(.system(size: 9))
+                                .foregroundColor(.primary)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.gray.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+                    
+                    ForEach(Array(topWebs), id: \.key) { domain, _ in
+                        HStack(spacing: 3) {
+                            Image(systemName: "globe")
+                                .font(.system(size: 8))
+                                .foregroundColor(.blue)
+                            Text(domain)
+                                .font(.system(size: 9))
+                                .foregroundColor(.primary)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.top, 2)
             }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
-            .background(Color.accentColor.opacity(0.12))
-            .foregroundColor(.accentColor)
-            .clipShape(Capsule())
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
         .background(Color(NSColor.controlBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.gray.opacity(0.12), lineWidth: 1)
+        )
+    }
+}
+
+private struct ProgramUsageRow: View {
+    let rank: Int
+    let stat: AppUsageStat
+    
+    private var appIcon: NSImage? {
+        let appName = stat.name
+        let paths = [
+            "/Applications/\(appName).app",
+            "/System/Applications/\(appName).app",
+            "/System/Applications/Utilities/\(appName).app"
+        ]
+        for path in paths {
+            if FileManager.default.fileExists(atPath: path) {
+                return NSWorkspace.shared.icon(forFile: path)
+            }
+        }
+        return nil
+    }
+    
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 12) {
+                // Rank Badge
+                Text("#\(rank)")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(rank == 1 ? .accentColor : .secondary)
+                    .frame(width: 26, alignment: .leading)
+                
+                // App Icon
+                if let icon = appIcon {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 24, height: 24)
+                } else {
+                    Image(systemName: "app.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(.accentColor)
+                        .frame(width: 24, height: 24)
+                        .background(Color.accentColor.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                
+                // App Name
+                Text(stat.name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                // Duration & Percentage
+                HStack(spacing: 8) {
+                    Text(stat.durationFormatted)
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(.primary)
+                    
+                    Text("\(Int(stat.percentage * 100))%")
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .frame(width: 36, alignment: .trailing)
+                }
+            }
+            
+            // Proportional Progress Bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.gray.opacity(0.12))
+                        .frame(height: 6)
+                    
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: rank == 1 ? [.accentColor, .purple] : [.accentColor.opacity(0.8), .accentColor],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(4, geo.size.width * CGFloat(min(1.0, max(0.01, stat.percentage)))), height: 6)
+                }
+            }
+            .frame(height: 6)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color(NSColor.controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(rank == 1 ? Color.accentColor.opacity(0.3) : Color.gray.opacity(0.12), lineWidth: 1)
+        )
+    }
+}
+
+private struct WebsiteUsageRow: View {
+    let rank: Int
+    let stat: WebsiteUsageStat
+    
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 12) {
+                // Rank Badge
+                Text("#\(rank)")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(rank == 1 ? .blue : .secondary)
+                    .frame(width: 26, alignment: .leading)
+                
+                // Globe Icon
+                Image(systemName: "globe")
+                    .font(.system(size: 13))
+                    .foregroundColor(.blue)
+                    .frame(width: 24, height: 24)
+                    .background(Color.blue.opacity(0.12))
+                    .clipShape(Circle())
+                
+                // Website Domain
+                Text(stat.domain)
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                // Duration & Percentage
+                HStack(spacing: 8) {
+                    Text(stat.durationFormatted)
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(.primary)
+                    
+                    Text("\(Int(stat.percentage * 100))%")
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .frame(width: 36, alignment: .trailing)
+                }
+            }
+            
+            // Proportional Progress Bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.gray.opacity(0.12))
+                        .frame(height: 6)
+                    
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: rank == 1 ? [.blue, .cyan] : [.blue.opacity(0.7), .blue],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(4, geo.size.width * CGFloat(min(1.0, max(0.01, stat.percentage)))), height: 6)
+                }
+            }
+            .frame(height: 6)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color(NSColor.controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(rank == 1 ? Color.blue.opacity(0.3) : Color.gray.opacity(0.12), lineWidth: 1)
         )
     }
 }

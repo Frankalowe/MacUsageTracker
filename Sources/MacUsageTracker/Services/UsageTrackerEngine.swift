@@ -10,6 +10,15 @@ public final class UsageTrackerEngine: ObservableObject {
     @Published public var currentSessionDuration: TimeInterval = 0
     @Published public var isAwake: Bool = true
     
+    // Live program and website tracking
+    @Published public var liveAppUsage: [String: Int] = [:]
+    @Published public var liveWebsiteUsage: [String: Int] = [:]
+    @Published public var currentFrontmostApp: String = ""
+    @Published public var currentWebsiteDomain: String? = nil
+    
+    private var lastBrowserDomainCheckTime: TimeInterval = 0
+    private var cachedBrowserDomain: String? = nil
+    
     // Notification interval milestones
     public var lastQuoteIntervalIndex: Int = 0       // 60-minute interval tracker
     public var lastStretchIntervalIndex: Int = 0     // 90-minute interval tracker
@@ -79,7 +88,61 @@ public final class UsageTrackerEngine: ObservableObject {
     private func tick() {
         guard isAwake else { return }
         currentSessionDuration = Date().timeIntervalSince(currentSessionStart)
+        
+        // Track active frontmost program
+        let frontApp = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Finder"
+        self.currentFrontmostApp = frontApp
+        liveAppUsage[frontApp, default: 0] += 1
+        
+        // Track active website domain if frontmost app is a recognized browser
+        let browserNames = ["Google Chrome", "Safari", "Brave Browser", "Microsoft Edge", "Arc", "Chromium"]
+        if browserNames.contains(frontApp) {
+            if let domain = sampleBrowserDomain(appName: frontApp) {
+                self.currentWebsiteDomain = domain
+                liveWebsiteUsage[domain, default: 0] += 1
+            } else {
+                self.currentWebsiteDomain = nil
+            }
+        } else {
+            self.currentWebsiteDomain = nil
+        }
+        
         checkNotificationTriggers()
+    }
+    
+    /// Queries the active tab domain when a browser is in focus, sampling every 2s for zero overhead.
+    private func sampleBrowserDomain(appName: String) -> String? {
+        let now = Date().timeIntervalSince1970
+        if now - lastBrowserDomainCheckTime < 2.0 {
+            return cachedBrowserDomain
+        }
+        lastBrowserDomainCheckTime = now
+        
+        let scriptSource: String
+        if appName == "Safari" {
+            scriptSource = "if application \"Safari\" is running then tell application \"Safari\" to return URL of front document"
+        } else if ["Google Chrome", "Brave Browser", "Microsoft Edge", "Arc", "Chromium"].contains(appName) {
+            scriptSource = "if application \"\(appName)\" is running then tell application \"\(appName)\" to return URL of active tab of front window"
+        } else {
+            cachedBrowserDomain = nil
+            return nil
+        }
+        
+        guard let script = NSAppleScript(source: scriptSource) else {
+            cachedBrowserDomain = nil
+            return nil
+        }
+        
+        var errorInfo: NSDictionary?
+        let descriptor = script.executeAndReturnError(&errorInfo)
+        if errorInfo == nil, let urlString = descriptor.stringValue, let url = URL(string: urlString), let host = url.host {
+            let domain = host.lowercased().hasPrefix("www.") ? String(host.dropFirst(4)) : host.lowercased()
+            cachedBrowserDomain = domain
+            return domain
+        }
+        
+        cachedBrowserDomain = nil
+        return nil
     }
     
     public func checkNotificationTriggers() {
@@ -185,6 +248,9 @@ public final class UsageTrackerEngine: ObservableObject {
         currentSessionDuration = 0
         lastQuoteIntervalIndex = 0
         lastStretchIntervalIndex = 0
+        liveAppUsage.removeAll()
+        liveWebsiteUsage.removeAll()
+        cachedBrowserDomain = nil
         isAwake = true
         startTimer()
     }
@@ -202,9 +268,14 @@ public final class UsageTrackerEngine: ObservableObject {
             let session = UsageSession(
                 startTime: currentSessionStart,
                 endTime: now,
-                durationSeconds: duration
+                durationSeconds: duration,
+                appUsage: liveAppUsage,
+                websiteUsage: liveWebsiteUsage
             )
             DataManager.shared.addSession(session)
         }
+        liveAppUsage.removeAll()
+        liveWebsiteUsage.removeAll()
+        cachedBrowserDomain = nil
     }
 }

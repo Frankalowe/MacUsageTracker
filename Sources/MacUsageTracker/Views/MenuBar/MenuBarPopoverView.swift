@@ -116,6 +116,38 @@ public struct MenuBarPopoverView: View {
                                     .foregroundColor(.secondary)
                             }
                         }
+
+                        if !usageEngine.currentFrontmostApp.isEmpty {
+                            HStack(spacing: 6) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "app.fill")
+                                        .font(.system(size: 8))
+                                        .foregroundColor(.accentColor)
+                                    Text(usageEngine.currentFrontmostApp)
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                }
+                                
+                                if let domain = usageEngine.currentWebsiteDomain, !domain.isEmpty {
+                                    Text("•")
+                                        .font(.system(size: 8))
+                                        .foregroundColor(.secondary)
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "globe")
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.blue)
+                                        Text(domain)
+                                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                                            .foregroundColor(.primary)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.gray.opacity(0.1))
+                            .clipShape(Capsule())
+                            .padding(.top, 2)
+                        }
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity)

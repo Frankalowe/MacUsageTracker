@@ -25,14 +25,14 @@ public final class TimerHistoryWindowController: NSObject, NSWindowDelegate {
         let hostingController = NSHostingController(rootView: contentView)
         
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 660, height: 700),
+            contentRect: NSRect(x: 0, y: 0, width: 720, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         
         newWindow.title = "Mac Usage History (Monthly Analysis)"
-        newWindow.minSize = NSSize(width: 580, height: 520)
+        newWindow.minSize = NSSize(width: 640, height: 580)
         newWindow.contentViewController = hostingController
         newWindow.center()
         newWindow.isReleasedWhenClosed = false

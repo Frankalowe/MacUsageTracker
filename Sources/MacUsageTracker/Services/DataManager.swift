@@ -233,6 +233,68 @@ public final class DataManager: ObservableObject {
         
         return summaries
     }
+
+    // MARK: - Top Programs & Websites Aggregation
+
+    /// Aggregates program usage across the given sessions and optional live session.
+    public func topPrograms(
+        sessions: [UsageSession],
+        limit: Int = 10,
+        liveAppUsage: [String: Int] = [:]
+    ) -> [AppUsageStat] {
+        var totals = liveAppUsage
+        for session in sessions {
+            for (app, secs) in session.appUsage {
+                totals[app, default: 0] += secs
+            }
+        }
+        let totalSecs = max(1, totals.values.reduce(0, +))
+        return totals
+            .filter { $0.value > 0 }
+            .map { AppUsageStat(name: $0.key, durationSeconds: $0.value, percentage: Double($0.value) / Double(totalSecs)) }
+            .sorted { $0.durationSeconds > $1.durationSeconds }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    /// Aggregates top programs over the last N days.
+    public func topPrograms(
+        days: Int = 35,
+        limit: Int = 10,
+        liveAppUsage: [String: Int] = [:]
+    ) -> [AppUsageStat] {
+        topPrograms(sessions: sessionsInLastDays(days: days), limit: limit, liveAppUsage: liveAppUsage)
+    }
+
+    /// Aggregates website domain usage across the given sessions and optional live session.
+    public func topWebsites(
+        sessions: [UsageSession],
+        limit: Int = 10,
+        liveWebsiteUsage: [String: Int] = [:]
+    ) -> [WebsiteUsageStat] {
+        var totals = liveWebsiteUsage
+        for session in sessions {
+            for (domain, secs) in session.websiteUsage {
+                totals[domain, default: 0] += secs
+            }
+        }
+        let totalSecs = max(1, totals.values.reduce(0, +))
+        return totals
+            .filter { $0.value > 0 }
+            .map { WebsiteUsageStat(domain: $0.key, durationSeconds: $0.value, percentage: Double($0.value) / Double(totalSecs)) }
+            .sorted { $0.durationSeconds > $1.durationSeconds }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    /// Aggregates top websites over the last N days.
+    public func topWebsites(
+        days: Int = 35,
+        limit: Int = 10,
+        liveWebsiteUsage: [String: Int] = [:]
+    ) -> [WebsiteUsageStat] {
+        topWebsites(sessions: sessionsInLastDays(days: days), limit: limit, liveWebsiteUsage: liveWebsiteUsage)
+    }
     
     /// Clears all stored sessions manually.
     public func clearAllSessions() {
