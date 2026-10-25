@@ -146,6 +146,22 @@ public struct SettingsView: View {
                             .font(.system(size: 10))
                             .foregroundColor(.secondary)
                     }
+                    
+                    HStack {
+                        Button(action: {
+                            NotificationService.shared.sendTestNotification()
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "bell.badge.fill")
+                                Text("Send Test Notification Now")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        
+                        Spacer()
+                    }
+                    .padding(.top, 4)
                 }
                 
                 Section("35-Day Storage Policy (Monthly Analysis)") {

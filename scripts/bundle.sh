@@ -50,4 +50,7 @@ cat << 'EOF' > "${APP_BUNDLE}/Contents/Info.plist"
 </plist>
 EOF
 
-echo "✅ App bundle created at ${APP_BUNDLE}"
+echo "🔏 Signing app bundle with ad-hoc signature..."
+codesign --force --deep -s - "${APP_BUNDLE}"
+
+echo "✅ App bundle created and signed at ${APP_BUNDLE}"

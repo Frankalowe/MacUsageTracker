@@ -1,31 +1,70 @@
 import Foundation
-import UserNotifications
+@preconcurrency import UserNotifications
+import AppKit
 
 @MainActor
-public final class NotificationService {
+public final class NotificationService: NSObject, UNUserNotificationCenterDelegate, ObservableObject {
     public static let shared = NotificationService()
     
-    private init() {
+    @Published public var authorizationStatus: UNAuthorizationStatus = .notDetermined
+    
+    private override init() {
+        super.init()
         if Bundle.main.bundleIdentifier != nil {
-            requestAuthorization()
+            UNUserNotificationCenter.current().delegate = self
+            checkAndRequestAuthorization()
         }
     }
     
-    public func requestAuthorization() {
+    public func checkAndRequestAuthorization() {
         guard Bundle.main.bundleIdentifier != nil else { return }
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if let error = error {
-                print("Notification permission notice: \(error.localizedDescription)")
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        
+        Task { @MainActor in
+            let settings = await center.notificationSettings()
+            self.authorizationStatus = settings.authorizationStatus
+            if settings.authorizationStatus == .notDetermined {
+                do {
+                    let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+                    self.authorizationStatus = granted ? .authorized : .denied
+                } catch {
+                    self.authorizationStatus = .denied
+                    print("Notification authorization notice: \(error.localizedDescription)")
+                }
             }
         }
     }
     
+    public func requestAuthorization() {
+        checkAndRequestAuthorization()
+    }
+    
+    // MARK: - UNUserNotificationCenterDelegate
+    
+    nonisolated public func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        // Display banner, play sound, and update badge even when the app is active/focused
+        completionHandler([.banner, .sound, .badge, .list])
+    }
+    
+    nonisolated public func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        completionHandler()
+    }
+    
+    // MARK: - Notification Dispatch
+    
     public func sendNotification(title: String, subtitle: String? = nil, body: String) {
-        guard Bundle.main.bundleIdentifier != nil else { return }
-        
         let content = UNMutableNotificationContent()
         content.title = title
-        if let subtitle = subtitle {
+        if let subtitle = subtitle, !subtitle.isEmpty {
             content.subtitle = subtitle
         }
         content.body = body
@@ -37,10 +76,50 @@ public final class NotificationService {
             trigger: nil // Deliver immediately
         )
         
-        UNUserNotificationCenter.current().add(request) { error in
+        UNUserNotificationCenter.current().add(request) { [weak self] error in
             if let error = error {
-                print("Failed to deliver notification: \(error.localizedDescription)")
+                print("UNUserNotificationCenter delivery issue: \(error.localizedDescription), falling back to native alert")
+                Task { @MainActor in
+                    self?.deliverViaAppleScript(title: title, subtitle: subtitle, body: body)
+                }
             }
+        }
+        
+        // If UNUserNotificationCenter is not explicitly authorized yet, also guarantee delivery via AppleScript fallback
+        if self.authorizationStatus != .authorized {
+            deliverViaAppleScript(title: title, subtitle: subtitle, body: body)
+        }
+    }
+    
+    public func deliverViaAppleScript(title: String, subtitle: String?, body: String) {
+        let escapedTitle = title.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        let escapedSub = (subtitle ?? "").replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        let escapedBody = body.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        
+        let scriptSource: String
+        if !escapedSub.isEmpty {
+            scriptSource = "display notification \"\(escapedBody)\" with title \"\(escapedTitle)\" subtitle \"\(escapedSub)\" sound name \"default\""
+        } else {
+            scriptSource = "display notification \"\(escapedBody)\" with title \"\(escapedTitle)\" sound name \"default\""
+        }
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            var errorInfo: NSDictionary?
+            if let script = NSAppleScript(source: scriptSource) {
+                script.executeAndReturnError(&errorInfo)
+            }
+        }
+    }
+    
+    /// Sends an immediate test notification with quote and sound to verify alerts work
+    public func sendTestNotification() {
+        Task {
+            let quote = await getMotivationalQuote()
+            sendNotification(
+                title: "⚡ Test Motivational Quote",
+                subtitle: "Keep Going Strong",
+                body: "\"\(quote.quote)\" — \(quote.author)"
+            )
         }
     }
     
