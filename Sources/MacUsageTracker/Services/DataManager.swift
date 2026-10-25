@@ -356,13 +356,8 @@ public final class DataManager: ObservableObject {
 
     /// Normalizes and cleans website domain names and local software titles
     public static func normalizeWebsiteName(_ name: String) -> String {
-        if name.contains("ClipForge") {
-            if name.contains("3000") {
-                return "ClipForge (localhost:3000)"
-            }
-            return "ClipForge"
-        }
-        return name
+        let canonical = LocalLLMService.shared.canonicalWebsiteIdentifier(raw: name)
+        return canonical.isEmpty ? name : canonical
     }
 
     /// Aggregates website domain usage across the given sessions and optional live session.
@@ -372,19 +367,39 @@ public final class DataManager: ObservableObject {
         liveWebsiteUsage: [String: Int] = [:]
     ) -> [WebsiteUsageStat] {
         var totals: [String: Int] = [:]
+        var uncanonicalizedRawKeys: [String] = []
+        
         for (domain, secs) in liveWebsiteUsage {
             let norm = Self.normalizeWebsiteName(domain)
-            totals[norm, default: 0] += secs
+            if !norm.isEmpty && !Self.ignoredDomains.contains(norm) {
+                totals[norm, default: 0] += secs
+            }
+            if !LocalLLMService.shared.domainRegistry.keys.contains(domain) {
+                uncanonicalizedRawKeys.append(domain)
+            }
         }
         for session in sessions {
             for (domain, secs) in session.websiteUsage {
                 let norm = Self.normalizeWebsiteName(domain)
-                totals[norm, default: 0] += secs
+                if !norm.isEmpty && !Self.ignoredDomains.contains(norm) {
+                    totals[norm, default: 0] += secs
+                }
+                if !LocalLLMService.shared.domainRegistry.keys.contains(domain) {
+                    uncanonicalizedRawKeys.append(domain)
+                }
             }
         }
         for ignored in Self.ignoredDomains {
             totals.removeValue(forKey: ignored)
         }
+        
+        // Trigger background local AI canonicalization for any newly seen addresses
+        if !uncanonicalizedRawKeys.isEmpty {
+            Task {
+                await LocalLLMService.shared.runLocalAICanonicalization(identifiers: uncanonicalizedRawKeys)
+            }
+        }
+        
         let totalSecs = max(1, totals.values.reduce(0, +))
         return totals
             .filter { !Self.ignoredDomains.contains($0.key) && $0.value > 0 }

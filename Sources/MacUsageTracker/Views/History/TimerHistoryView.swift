@@ -481,9 +481,14 @@ public struct TimerHistoryView: View {
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text("\(topWebsitesList.count) websites tracked")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 9))
+                                .foregroundColor(.purple)
+                            Text("AI Unified & Deduplicated (\(topWebsitesList.count))")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.secondary)
+                        }
                     }
                     .padding(.bottom, 2)
                     
@@ -666,6 +671,39 @@ public struct TimerHistoryView: View {
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(Color.accentColor.opacity(0.25), lineWidth: 1.5)
                 )
+                
+                // AI Entity Deduplication Status
+                HStack(spacing: 12) {
+                    Image(systemName: "arrow.triangle.merge")
+                        .font(.system(size: 16))
+                        .foregroundColor(.purple)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Local AI Address & Tab Deduplication Active")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("Multiple localhost:3000 tabs and subdomains are unified into single primary software entities via Ollama (qwen2.5:3b).")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.green)
+                        Text("Unified")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(.green)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.green.opacity(0.12))
+                    .clipShape(Capsule())
+                }
+                .padding(12)
+                .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
                 
                 // Software & Focus Work breakdown
                 VStack(alignment: .leading, spacing: 10) {

@@ -83,8 +83,6 @@ public final class UsageTrackerEngine: ObservableObject {
             return nil
         }
         
-        let hostWithPort = port != nil && port != 80 && port != 443 ? "\(cleanHost):\(port!)" : cleanHost
-        
         // Identify local software development and internal server hosts
         let isLocal = cleanHost == "localhost" ||
                       cleanHost == "127.0.0.1" ||
@@ -96,20 +94,14 @@ public final class UsageTrackerEngine: ObservableObject {
                       cleanHost.hasSuffix(".test") ||
                       cleanHost.hasSuffix(".internal")
         
-        guard isLocal else {
-            return cleanHost
+        if isLocal {
+            let p = port ?? 3000
+            let canon = LocalLLMService.shared.canonicalLocalhostIdentifier(port: p, title: title)
+            return canon.isEmpty ? nil : canon
         }
         
-        guard let rawTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines), !rawTitle.isEmpty else {
-            return hostWithPort
-        }
-        
-        let cleanService = LocalLLMService.shared.cleanServiceNameHeuristic(rawTitle)
-        if !cleanService.isEmpty && cleanService.lowercased() != cleanHost && cleanService.lowercased() != hostWithPort && !cleanService.hasPrefix("http") {
-            return "\(cleanService) (\(hostWithPort))"
-        }
-        
-        return hostWithPort
+        let canon = LocalLLMService.shared.canonicalWebsiteIdentifier(raw: cleanHost)
+        return canon.isEmpty ? nil : canon
     }
     
     private func restoreActiveSessionIfAvailable(fallbackNow: Date) {
@@ -126,12 +118,21 @@ public final class UsageTrackerEngine: ObservableObject {
         let bootTime = systemBootTime()
         let didReboot = (bootTime != nil && bootTime! > state.lastHeartbeat)
         
+        // Normalize any fragmented keys in active session usage
+        var normalizedWeb: [String: Int] = [:]
+        for (k, v) in state.liveWebsiteUsage {
+            let norm = LocalLLMService.shared.canonicalWebsiteIdentifier(raw: k)
+            if !norm.isEmpty {
+                normalizedWeb[norm, default: 0] += v
+            }
+        }
+        
         // If the app was restarted/updated recently (within 15 mins) and Mac didn't reboot in between:
         // Seamlessly continue the active session with ZERO lost progress!
         if timeSinceHeartbeat < 15 * 60 && !didReboot {
             self.currentSessionStart = state.sessionStartTime
             self.liveAppUsage = state.liveAppUsage
-            self.liveWebsiteUsage = state.liveWebsiteUsage
+            self.liveWebsiteUsage = normalizedWeb
             self.lastQuoteIntervalIndex = state.lastQuoteIntervalIndex
             self.lastStretchIntervalIndex = state.lastStretchIntervalIndex
             self.last10HourNotifiedDateKey = state.last10HourNotifiedDateKey
@@ -146,7 +147,7 @@ public final class UsageTrackerEngine: ObservableObject {
                     endTime: state.lastHeartbeat,
                     durationSeconds: duration,
                     appUsage: state.liveAppUsage,
-                    websiteUsage: state.liveWebsiteUsage
+                    websiteUsage: normalizedWeb
                 )
                 DataManager.shared.addSession(session)
                 print("Finalized previous session of \(duration)s into history before starting fresh session")
