@@ -117,7 +117,7 @@ public struct MenuBarPopoverView: View {
                             }
                         }
 
-                        if !usageEngine.currentFrontmostApp.isEmpty {
+                        if !usageEngine.currentFrontmostApp.isEmpty && !DataManager.ignoredAppNames.contains(usageEngine.currentFrontmostApp) {
                             HStack(spacing: 6) {
                                 HStack(spacing: 4) {
                                     Image(systemName: "app.fill")

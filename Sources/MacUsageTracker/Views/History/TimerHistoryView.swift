@@ -637,8 +637,9 @@ private struct ActiveLiveSessionCard: View {
             }
             
             // Mini top apps in this active session
-            if !liveAppUsage.isEmpty {
-                let sortedLive = liveAppUsage.sorted { $0.value > $1.value }.prefix(4)
+            let filteredLive = liveAppUsage.filter { !DataManager.ignoredAppNames.contains($0.key) }
+            if !filteredLive.isEmpty {
+                let sortedLive = filteredLive.sorted { $0.value > $1.value }.prefix(4)
                 HStack(spacing: 6) {
                     Text("Session Apps:")
                         .font(.system(size: 9, weight: .bold))
@@ -711,7 +712,10 @@ private struct SessionRow: View {
             }
             
             // Program & Website breakdown chips for this session
-            let topApps = session.appUsage.sorted { $0.value > $1.value }.prefix(3)
+            let topApps = session.appUsage
+                .filter { !DataManager.ignoredAppNames.contains($0.key) }
+                .sorted { $0.value > $1.value }
+                .prefix(3)
             let topWebs = session.websiteUsage.sorted { $0.value > $1.value }.prefix(2)
             
             if !topApps.isEmpty || !topWebs.isEmpty {

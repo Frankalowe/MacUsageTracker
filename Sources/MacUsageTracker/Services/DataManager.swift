@@ -79,6 +79,14 @@ public final class DataManager: ObservableObject {
             let decoded = try JSONDecoder().decode(AppData.self, from: data)
             self.settings = decoded.settings
             self.sessions = decoded.sessions
+            
+            // Clean out any self-tracker app entries from existing historical sessions
+            for i in 0..<self.sessions.count {
+                for ignored in Self.ignoredAppNames {
+                    self.sessions[i].appUsage.removeValue(forKey: ignored)
+                }
+            }
+            
             pruneOldSessions()
         } catch {
             print("Failed to decode data, using defaults: \(error)")
@@ -236,7 +244,14 @@ public final class DataManager: ObservableObject {
 
     // MARK: - Top Programs & Websites Aggregation
 
-    /// Aggregates program usage across the given sessions and optional live session.
+    public static let ignoredAppNames: Set<String> = [
+        "Mac Usage Tracker",
+        "MacUsageTracker",
+        "PomodoroTimetable",
+        "Pomodoro Timetable"
+    ]
+
+    /// Aggregates program usage across the given sessions and optional live session, excluding the tracker itself.
     public func topPrograms(
         sessions: [UsageSession],
         limit: Int = 10,
@@ -248,9 +263,12 @@ public final class DataManager: ObservableObject {
                 totals[app, default: 0] += secs
             }
         }
+        for ignored in Self.ignoredAppNames {
+            totals.removeValue(forKey: ignored)
+        }
         let totalSecs = max(1, totals.values.reduce(0, +))
         return totals
-            .filter { $0.value > 0 }
+            .filter { !Self.ignoredAppNames.contains($0.key) && $0.value > 0 }
             .map { AppUsageStat(name: $0.key, durationSeconds: $0.value, percentage: Double($0.value) / Double(totalSecs)) }
             .sorted { $0.durationSeconds > $1.durationSeconds }
             .prefix(limit)

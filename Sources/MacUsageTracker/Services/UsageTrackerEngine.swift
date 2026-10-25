@@ -85,26 +85,40 @@ public final class UsageTrackerEngine: ObservableObject {
         timerCancellable = nil
     }
     
+    private func isSelfApplication(name: String) -> Bool {
+        let selfNames = ["Mac Usage Tracker", "MacUsageTracker", ProcessInfo.processInfo.processName]
+        if selfNames.contains(name) { return true }
+        if let bundleId = Bundle.main.bundleIdentifier,
+           let frontBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+           frontBundleId == bundleId {
+            return true
+        }
+        return false
+    }
+
     private func tick() {
         guard isAwake else { return }
         currentSessionDuration = Date().timeIntervalSince(currentSessionStart)
         
-        // Track active frontmost program
-        let frontApp = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Finder"
-        self.currentFrontmostApp = frontApp
-        liveAppUsage[frontApp, default: 0] += 1
-        
-        // Track active website domain if frontmost app is a recognized browser
-        let browserNames = ["Google Chrome", "Safari", "Brave Browser", "Microsoft Edge", "Arc", "Chromium"]
-        if browserNames.contains(frontApp) {
-            if let domain = sampleBrowserDomain(appName: frontApp) {
-                self.currentWebsiteDomain = domain
-                liveWebsiteUsage[domain, default: 0] += 1
+        // Track active frontmost program (ignoring Mac Usage Tracker itself)
+        if let frontmost = NSWorkspace.shared.frontmostApplication,
+           let frontApp = frontmost.localizedName,
+           !isSelfApplication(name: frontApp) {
+            self.currentFrontmostApp = frontApp
+            liveAppUsage[frontApp, default: 0] += 1
+            
+            // Track active website domain if frontmost app is a recognized browser
+            let browserNames = ["Google Chrome", "Safari", "Brave Browser", "Microsoft Edge", "Arc", "Chromium"]
+            if browserNames.contains(frontApp) {
+                if let domain = sampleBrowserDomain(appName: frontApp) {
+                    self.currentWebsiteDomain = domain
+                    liveWebsiteUsage[domain, default: 0] += 1
+                } else {
+                    self.currentWebsiteDomain = nil
+                }
             } else {
                 self.currentWebsiteDomain = nil
             }
-        } else {
-            self.currentWebsiteDomain = nil
         }
         
         checkNotificationTriggers()
