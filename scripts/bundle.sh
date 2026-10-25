@@ -2,7 +2,7 @@
 set -e
 
 CONFIG=${1:-release}
-APP_NAME="PomodoroTimetable"
+APP_NAME="MacUsageTracker"
 APP_BUNDLE="MacUsageTracker.app"
 
 echo "🔨 Building ${APP_NAME} (${CONFIG})..."
@@ -25,7 +25,7 @@ cat << 'EOF' > "${APP_BUNDLE}/Contents/Info.plist"
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>PomodoroTimetable</string>
+    <string>MacUsageTracker</string>
     <key>CFBundleIdentifier</key>
     <string>com.antigravity.MacUsageTracker</string>
     <key>CFBundleInfoDictionaryVersion</key>

@@ -2,20 +2,20 @@
 import PackageDescription
 
 let package = Package(
-    name: "PomodoroTimetable",
+    name: "MacUsageTracker",
     platforms: [
         .macOS(.v14)
     ],
     products: [
         .executable(
-            name: "PomodoroTimetable",
-            targets: ["PomodoroTimetable"]
+            name: "MacUsageTracker",
+            targets: ["MacUsageTracker"]
         )
     ],
     targets: [
         .executableTarget(
-            name: "PomodoroTimetable",
-            path: "Sources/PomodoroTimetable"
+            name: "MacUsageTracker",
+            path: "Sources/MacUsageTracker"
         )
     ]
 )

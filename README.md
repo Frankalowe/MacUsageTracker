@@ -1,6 +1,6 @@
 # Mac Usage Tracker for macOS 💻⏱️
 
-A native macOS status bar menu application that automatically tracks your active MacBook work time by detecting when your Mac wakes up or boots and when it sleeps or shuts down. No manual timers, no Pomodoro resets, and zero configuration needed.
+A native macOS status bar menu application that automatically tracks your active MacBook work time by detecting when your Mac wakes up or boots and when it sleeps or shuts down. No manual timers, no periodic resets, and zero configuration needed.
 
 ---
 
@@ -39,7 +39,7 @@ make run
 ```
 or launch the prebuilt app bundle:
 ```bash
-open PomodoroTimetable.app
+open MacUsageTracker.app
 ```
 
 The `💻` icon with live uptime will appear in your macOS status menu bar.
@@ -52,6 +52,6 @@ The `💻` icon with live uptime will appear in your macOS status menu bar.
 | :--- | :--- |
 | `make build` | Builds the debug binary with Swift Package Manager |
 | `make release` | Builds an optimized release binary |
-| `make bundle` | Packages the application into `PomodoroTimetable.app` (`LSUIElement = YES`) |
+| `make bundle` | Packages the application into `MacUsageTracker.app` (`LSUIElement = YES`) |
 | `make run` | Builds the release app bundle and launches it |
 | `make clean` | Removes build artifacts and bundle |

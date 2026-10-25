@@ -18,7 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct PomodoroTimetableApp: App {
+struct MacUsageTrackerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var dataManager = DataManager.shared
     @StateObject private var usageEngine = UsageTrackerEngine.shared
