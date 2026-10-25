@@ -23,6 +23,7 @@ public struct TimerHistoryView: View {
     
     @StateObject private var uiState = HistoryUIState()
     @StateObject private var localLLM = LocalLLMService.shared
+    @StateObject private var motivationPlayer = MotivationPlayerService.shared
     
     public init() {}
     
@@ -533,6 +534,50 @@ public struct TimerHistoryView: View {
                     .controlSize(.small)
                 }
                 .padding(.top, 4)
+                
+                // Motivate Me Action Banner
+                Button(action: {
+                    motivationPlayer.toggle()
+                }) {
+                    HStack(spacing: 12) {
+                        Image(systemName: motivationPlayer.isPlaying ? "speaker.wave.3.fill" : "bolt.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(motivationPlayer.isPlaying ? .white : .yellow)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(motivationPlayer.isPlaying ? "Playing: The Unit (Extended Remix)" : "Motivate me")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white)
+                            Text(motivationPlayer.isPlaying ? "Song is playing till the end • Click to stop" : "Sends another motivational quote notification and plays \"The Unit\" soundtrack till the end")
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.85))
+                        }
+                        
+                        Spacer()
+                        
+                        HStack(spacing: 6) {
+                            Image(systemName: motivationPlayer.isPlaying ? "stop.fill" : "play.fill")
+                            Text(motivationPlayer.isPlaying ? "Stop" : "Play")
+                        }
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(Capsule())
+                    }
+                    .padding(14)
+                    .background(
+                        LinearGradient(
+                            colors: motivationPlayer.isPlaying ? [Color.purple, Color.indigo] : [Color.orange, Color.red],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: (motivationPlayer.isPlaying ? Color.purple : Color.orange).opacity(0.3), radius: 6, y: 2)
+                }
+                .buttonStyle(.plain)
                 
                 // 3 Score Cards
                 HStack(spacing: 12) {

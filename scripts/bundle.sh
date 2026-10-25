@@ -12,6 +12,7 @@ echo "📦 Creating macOS App Bundle..."
 rm -rf "${APP_BUNDLE}" PomodoroTimetable.app
 mkdir -p "${APP_BUNDLE}/Contents/MacOS"
 mkdir -p "${APP_BUNDLE}/Contents/Resources"
+cp -R Sources/MacUsageTracker/Resources/* "${APP_BUNDLE}/Contents/Resources/" 2>/dev/null || true
 
 BIN_PATH=$(swift build -c "${CONFIG}" --show-bin-path)/${APP_NAME}
 cp "${BIN_PATH}" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"

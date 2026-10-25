@@ -15,7 +15,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "MacUsageTracker",
-            path: "Sources/MacUsageTracker"
+            path: "Sources/MacUsageTracker",
+            resources: [
+                .copy("Resources")
+            ]
         )
     ]
 )

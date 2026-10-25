@@ -10,6 +10,7 @@ public struct MenuBarPopoverView: View {
     @EnvironmentObject var usageEngine: UsageTrackerEngine
     
     @StateObject private var uiState = PopoverUIState()
+    @StateObject private var motivationPlayer = MotivationPlayerService.shared
     
     public init() {}
     
@@ -127,6 +128,61 @@ public struct MenuBarPopoverView: View {
                     )
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
+                    
+                    // Motivate Me Action Card
+                    Button(action: {
+                        motivationPlayer.toggle()
+                    }) {
+                        HStack(spacing: 10) {
+                            if motivationPlayer.isPlaying {
+                                Image(systemName: "speaker.wave.3.fill")
+                                    .font(.system(size: 15))
+                                    .foregroundColor(.white)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Playing: The Unit (Extended)")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.white)
+                                    Text("Tap to stop music")
+                                        .font(.system(size: 9))
+                                        .foregroundColor(.white.opacity(0.85))
+                                }
+                            } else {
+                                Image(systemName: "bolt.fill")
+                                    .font(.system(size: 15))
+                                    .foregroundColor(.yellow)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Motivate me")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.white)
+                                    Text("Instant quote notification & play soundtrack")
+                                        .font(.system(size: 9))
+                                        .foregroundColor(.white.opacity(0.85))
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: motivationPlayer.isPlaying ? "stop.circle.fill" : "play.circle.fill")
+                                .font(.system(size: 18))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            LinearGradient(
+                                colors: motivationPlayer.isPlaying ? [Color.purple, Color.indigo] : [Color.orange, Color.red],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .shadow(color: (motivationPlayer.isPlaying ? Color.purple : Color.orange).opacity(0.3), radius: 4, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16)
                     
                     // Today's Cumulative Screen Time Card
                     VStack(alignment: .leading, spacing: 8) {
@@ -255,6 +311,6 @@ public struct MenuBarPopoverView: View {
             .padding(.vertical, 10)
             .background(Color(NSColor.controlBackgroundColor))
         }
-        .frame(width: 330, height: 450)
+        .frame(width: 330, height: 500)
     }
 }
