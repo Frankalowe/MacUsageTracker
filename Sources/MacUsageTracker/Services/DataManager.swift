@@ -91,10 +91,13 @@ public final class DataManager: ObservableObject {
             self.settings = decoded.settings
             self.sessions = decoded.sessions
             
-            // Clean out any self-tracker app entries from existing historical sessions
+            // Clean out any self-tracker app entries & internal browser pages from existing historical sessions
             for i in 0..<self.sessions.count {
                 for ignored in Self.ignoredAppNames {
                     self.sessions[i].appUsage.removeValue(forKey: ignored)
+                }
+                for ignored in Self.ignoredDomains {
+                    self.sessions[i].websiteUsage.removeValue(forKey: ignored)
                 }
             }
             
@@ -313,6 +316,10 @@ public final class DataManager: ObservableObject {
         "PomodoroTimetable",
         "Pomodoro Timetable"
     ]
+    
+    public static let ignoredDomains: Set<String> = [
+        "newtab", "new-tab-page", "extensions", "settings", "about", "blank", "downloads", "history"
+    ]
 
     /// Aggregates program usage across the given sessions and optional live session, excluding the tracker itself.
     public func topPrograms(
@@ -359,9 +366,12 @@ public final class DataManager: ObservableObject {
                 totals[domain, default: 0] += secs
             }
         }
+        for ignored in Self.ignoredDomains {
+            totals.removeValue(forKey: ignored)
+        }
         let totalSecs = max(1, totals.values.reduce(0, +))
         return totals
-            .filter { $0.value > 0 }
+            .filter { !Self.ignoredDomains.contains($0.key) && $0.value > 0 }
             .map { WebsiteUsageStat(domain: $0.key, durationSeconds: $0.value, percentage: Double($0.value) / Double(totalSecs)) }
             .sorted { $0.durationSeconds > $1.durationSeconds }
             .prefix(limit)

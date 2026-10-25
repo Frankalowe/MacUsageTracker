@@ -72,8 +72,8 @@ public final class BrowserExtensionServer: ObservableObject {
     }
     
     private func processRequest(_ request: String, connection: NWConnection) {
-        // Extract domain from query: /domain?name=example.com or body
         var domain: String? = nil
+        var title: String? = nil
         
         if let line = request.components(separatedBy: "\r\n").first {
             let parts = line.components(separatedBy: " ")
@@ -81,15 +81,15 @@ public final class BrowserExtensionServer: ObservableObject {
                 let path = parts[1]
                 if let urlComponents = URLComponents(string: "http://127.0.0.1" + path) {
                     domain = urlComponents.queryItems?.first(where: { $0.name == "name" || $0.name == "domain" })?.value
+                    title = urlComponents.queryItems?.first(where: { $0.name == "title" })?.value
                 }
             }
         }
         
         if let domain = domain, !domain.isEmpty {
-            let cleanDomain = domain.lowercased().hasPrefix("www.") ? String(domain.dropFirst(4)) : domain.lowercased()
-            self.lastReportedDomain = cleanDomain
+            self.lastReportedDomain = domain
             self.lastReportTime = Date()
-            UsageTrackerEngine.shared.handleDomainReportedFromExtension(cleanDomain)
+            UsageTrackerEngine.shared.handleDomainReportedFromExtension(rawDomain: domain, tabTitle: title)
         }
         
         let responseBody = "OK"

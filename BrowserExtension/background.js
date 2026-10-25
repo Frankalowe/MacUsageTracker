@@ -8,8 +8,11 @@ function reportActiveTab() {
       const url = new URL(tabs[0].url);
       if (url.protocol === "http:" || url.protocol === "https:") {
         const domain = url.hostname.replace(/^www\./, "");
+        const port = url.port ? `:${url.port}` : "";
+        const title = tabs[0].title || "";
         if (domain) {
-          fetch(`http://127.0.0.1:48123/domain?name=${encodeURIComponent(domain)}`, { method: "GET" })
+          const endpoint = `http://127.0.0.1:48123/domain?name=${encodeURIComponent(domain + port)}&title=${encodeURIComponent(title)}`;
+          fetch(endpoint, { method: "GET" })
             .catch(() => {
               // App may not be running currently
             });

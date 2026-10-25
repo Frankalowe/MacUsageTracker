@@ -55,13 +55,79 @@ public final class UsageTrackerEngine: ObservableObject {
         setupSystemObservers()
     }
     
-    /// Called when the companion browser extension reports the active tab domain
-    public func handleDomainReportedFromExtension(_ domain: String) {
+    /// Called when the companion browser extension reports the active tab domain and title
+    public func handleDomainReportedFromExtension(rawDomain: String, tabTitle: String?) {
         guard isAwake else { return }
-        self.extensionReportedDomain = domain
+        let urlString = rawDomain.contains("://") ? rawDomain : "http://" + rawDomain
+        let url = URL(string: urlString)
+        let host = url?.host ?? rawDomain
+        let port = url?.port
+        guard let formatted = Self.formatWebsiteIdentifier(host: host, port: port, title: tabTitle) else {
+            self.currentWebsiteDomain = nil
+            return
+        }
+        
+        self.extensionReportedDomain = formatted
         self.lastExtensionReportTime = Date().timeIntervalSince1970
-        self.currentWebsiteDomain = domain
-        self.liveWebsiteUsage[domain, default: 0] += 1
+        self.currentWebsiteDomain = formatted
+        self.liveWebsiteUsage[formatted, default: 0] += 1
+    }
+    
+    /// Formats a website identifier, extracting software name from tab title on localhost / local servers.
+    public static func formatWebsiteIdentifier(host: String, port: Int?, title: String?) -> String? {
+        let cleanHost = host.lowercased().hasPrefix("www.") ? String(host.dropFirst(4)) : host.lowercased()
+        
+        // Ignore internal browser pages (new tab, settings, etc.)
+        let internalPages: Set<String> = ["newtab", "new-tab-page", "extensions", "settings", "about", "blank", "downloads", "history"]
+        if internalPages.contains(cleanHost) || cleanHost.isEmpty {
+            return nil
+        }
+        
+        let hostWithPort = port != nil && port != 80 && port != 443 ? "\(cleanHost):\(port!)" : cleanHost
+        
+        // Identify local software development and internal server hosts
+        let isLocal = cleanHost == "localhost" ||
+                      cleanHost == "127.0.0.1" ||
+                      cleanHost == "0.0.0.0" ||
+                      cleanHost == "::1" ||
+                      cleanHost.hasPrefix("192.168.") ||
+                      cleanHost.hasPrefix("10.") ||
+                      cleanHost.hasSuffix(".local") ||
+                      cleanHost.hasSuffix(".test") ||
+                      cleanHost.hasSuffix(".internal")
+        
+        guard isLocal else {
+            return cleanHost
+        }
+        
+        guard let rawTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines), !rawTitle.isEmpty else {
+            return hostWithPort
+        }
+        
+        var cleanTitle = rawTitle
+        // Strip badge counters e.g. (1) or (99+)
+        if cleanTitle.hasPrefix("(") && cleanTitle.contains(")") {
+            if let closeParen = cleanTitle.firstIndex(of: ")") {
+                let prefix = cleanTitle[..<closeParen]
+                if prefix.dropFirst().allSatisfy({ $0.isNumber || $0 == "+" }) {
+                    cleanTitle = cleanTitle[cleanTitle.index(after: closeParen)...].trimmingCharacters(in: .whitespaces)
+                }
+            }
+        }
+        
+        // Strip common browser title suffixes
+        let suffixes = [" - Google Chrome", " - Brave", " - Safari", " - Arc", " - Microsoft Edge"]
+        for suffix in suffixes {
+            if cleanTitle.hasSuffix(suffix) {
+                cleanTitle = String(cleanTitle.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
+            }
+        }
+        
+        if cleanTitle.isEmpty || cleanTitle.lowercased() == cleanHost || cleanTitle.lowercased() == hostWithPort || cleanTitle.hasPrefix("http") {
+            return hostWithPort
+        }
+        
+        return "\(cleanTitle) (\(hostWithPort))"
     }
     
     private func restoreActiveSessionIfAvailable(fallbackNow: Date) {
@@ -242,7 +308,7 @@ public final class UsageTrackerEngine: ObservableObject {
         }
     }
     
-    /// Queries the active tab domain when a browser is in focus, sampling every 2s for zero overhead.
+    /// Queries the active tab domain and title when a browser is in focus, sampling every 2s for zero overhead.
     private func sampleBrowserDomain(bundleId: String, appName: String) -> String? {
         let now = Date().timeIntervalSince1970
         if now - lastBrowserDomainCheckTime < 2.0 {
@@ -252,10 +318,10 @@ public final class UsageTrackerEngine: ObservableObject {
         
         let scriptSource: String
         if bundleId == "com.apple.Safari" || appName == "Safari" {
-            scriptSource = "tell application id \"com.apple.Safari\" to return URL of front document"
+            scriptSource = "tell application id \"com.apple.Safari\" to return {URL of front document, name of front document}"
         } else {
             let target = bundleId.isEmpty ? "application \"\(appName)\"" : "application id \"\(bundleId)\""
-            scriptSource = "tell \(target) to return URL of active tab of front window"
+            scriptSource = "tell \(target) to return {URL of active tab of front window, title of active tab of front window}"
         }
         
         guard let script = NSAppleScript(source: scriptSource) else {
@@ -265,17 +331,38 @@ public final class UsageTrackerEngine: ObservableObject {
         
         var errorInfo: NSDictionary?
         let descriptor = script.executeAndReturnError(&errorInfo)
-        if errorInfo == nil, let raw = descriptor.stringValue, !raw.isEmpty {
-            let urlString = raw.contains("://") ? raw : "https://" + raw
-            if let url = URL(string: urlString), let host = url.host, !host.isEmpty {
-                let domain = host.lowercased().hasPrefix("www.") ? String(host.dropFirst(4)) : host.lowercased()
-                cachedBrowserDomain = domain
-                return domain
+        
+        var rawUrl: String? = nil
+        var tabTitle: String? = nil
+        
+        if errorInfo == nil {
+            if descriptor.numberOfItems >= 2 {
+                rawUrl = descriptor.atIndex(1)?.stringValue
+                tabTitle = descriptor.atIndex(2)?.stringValue
+            } else if descriptor.numberOfItems == 1 {
+                rawUrl = descriptor.atIndex(1)?.stringValue
+            } else {
+                rawUrl = descriptor.stringValue
             }
         }
         
-        cachedBrowserDomain = nil
-        return nil
+        guard let raw = rawUrl, !raw.isEmpty else {
+            cachedBrowserDomain = nil
+            return nil
+        }
+        
+        let urlString = raw.contains("://") ? raw : "https://" + raw
+        guard let url = URL(string: urlString), let host = url.host, !host.isEmpty else {
+            cachedBrowserDomain = nil
+            return nil
+        }
+        
+        guard let formatted = Self.formatWebsiteIdentifier(host: host, port: url.port, title: tabTitle) else {
+            cachedBrowserDomain = nil
+            return nil
+        }
+        cachedBrowserDomain = formatted
+        return formatted
     }
     
     public func checkNotificationTriggers() {
