@@ -2,7 +2,7 @@ import SwiftUI
 
 @MainActor
 final class SettingsUIState: ObservableObject {
-    @Published var showingClearConfirmation: Bool = false
+    // UI state helper
 }
 
 public struct SettingsView: View {
@@ -95,14 +95,6 @@ public struct SettingsView: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.small)
-                            
-                            if !dataManager.sessions.isEmpty {
-                                Button("Clear All Sessions") {
-                                    dataManager.clearAllSessions()
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
                         }
                         .padding(.top, 4)
                     }

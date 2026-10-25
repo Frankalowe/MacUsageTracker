@@ -5,7 +5,6 @@ import AppKit
 final class HistoryUIState: ObservableObject {
     @Published var selectedPeriodDays: Int = 35 // Default: 35 days for full month analysis
     @Published var selectedDateKey: String? = nil
-    @Published var showingClearConfirmation: Bool = false
     @Published var selectedTab: HistoryTab = .sessions
 }
 
@@ -144,28 +143,6 @@ public struct TimerHistoryView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 190)
-                
-                if !allPeriodSessions.isEmpty {
-                    Button(action: {
-                        uiState.showingClearConfirmation = true
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "trash")
-                                .font(.system(size: 11))
-                            Text("Clear")
-                                .font(.system(size: 11))
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .confirmationDialog("Clear all usage history?", isPresented: $uiState.showingClearConfirmation) {
-                        Button("Delete All History", role: .destructive) {
-                            dataManager.clearAllSessions()
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("This will delete all stored session periods immediately.")
-                    }
-                }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
