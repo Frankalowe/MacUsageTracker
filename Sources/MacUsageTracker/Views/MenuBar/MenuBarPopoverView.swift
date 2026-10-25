@@ -195,7 +195,7 @@ public struct MenuBarPopoverView: View {
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.secondary)
                             Spacer()
-                            Text("7-day auto-purge")
+                            Text("35-day retention")
                                 .font(.system(size: 9))
                                 .foregroundColor(.secondary)
                         }
@@ -236,7 +236,7 @@ public struct MenuBarPopoverView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "chart.bar.xaxis")
                             .font(.system(size: 11))
-                        Text("View 7-Day History ↗")
+                        Text("View Monthly History ↗")
                             .font(.system(size: 11, weight: .bold))
                     }
                 }

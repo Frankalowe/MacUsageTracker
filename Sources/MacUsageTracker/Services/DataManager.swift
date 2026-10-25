@@ -40,9 +40,9 @@ public struct AppData: Codable {
 public final class DataManager: ObservableObject {
     public static let shared = DataManager()
     
-    // 7-day retention policy: 7 days in seconds
-    public static let retentionDays: Int = 7
-    public static let retentionSeconds: TimeInterval = 7 * 24 * 60 * 60
+    // 35-day retention policy: 35 days in seconds (covers full month analysis)
+    public static let retentionDays: Int = 35
+    public static let retentionSeconds: TimeInterval = 35 * 24 * 60 * 60
     
     @Published public var sessions: [UsageSession] = []
     @Published public var settings: AppSettings = .default
@@ -59,7 +59,7 @@ public final class DataManager: ObservableObject {
         
         load()
         
-        // Setup recurring hourly check to purge any usage sessions older than 7 days
+        // Setup recurring hourly check to purge any usage sessions older than 35 days
         pruneCancellable = Timer.publish(every: 3600, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
@@ -98,9 +98,9 @@ public final class DataManager: ObservableObject {
         }
     }
     
-    // MARK: - 7-Day Retention Management
+    // MARK: - 35-Day Retention Management (Full Monthly Analysis)
     
-    /// Prunes any session records older than 7 days from the reference date.
+    /// Prunes any session records older than 35 days from the reference date.
     /// Returns the number of records pruned.
     @discardableResult
     public func pruneOldSessions(referenceDate: Date = Date()) -> Int {
@@ -156,18 +156,46 @@ public final class DataManager: ObservableObject {
         }
     }
     
-    /// Returns all sessions stored for the last 7 days, sorted newest first.
-    public func sessionsInLast7Days(referenceDate: Date = Date()) -> [UsageSession] {
-        let cutoff = referenceDate.addingTimeInterval(-Self.retentionSeconds)
+    /// Returns all sessions stored for the last N days (default 35 days for full month analysis).
+    public func sessionsInLastDays(days: Int = 35, referenceDate: Date = Date()) -> [UsageSession] {
+        let retention = TimeInterval(days * 24 * 60 * 60)
+        let cutoff = referenceDate.addingTimeInterval(-retention)
         return sessions
             .filter { $0.startTime >= cutoff }
             .sorted { $0.startTime > $1.startTime }
     }
     
-    /// Total seconds of Mac screen time over the last 7 days.
-    public func total7DaySeconds(referenceDate: Date = Date(), liveCurrentDuration: TimeInterval = 0) -> Int {
-        let completed = sessionsInLast7Days(referenceDate: referenceDate).reduce(0) { $0 + $1.durationSeconds }
+    /// Returns all sessions stored within the 35-day retention period.
+    public func sessionsInRetentionPeriod(referenceDate: Date = Date()) -> [UsageSession] {
+        return sessionsInLastDays(days: Self.retentionDays, referenceDate: referenceDate)
+    }
+    
+    /// Convenience helper for 7-day query
+    public func sessionsInLast7Days(referenceDate: Date = Date()) -> [UsageSession] {
+        return sessionsInLastDays(days: 7, referenceDate: referenceDate)
+    }
+    
+    /// Total seconds of Mac screen time over the specified number of days (default 35 days).
+    public func totalPeriodSeconds(days: Int = 35, referenceDate: Date = Date(), liveCurrentDuration: TimeInterval = 0) -> Int {
+        let completed = sessionsInLastDays(days: days, referenceDate: referenceDate).reduce(0) { $0 + $1.durationSeconds }
         return completed + Int(liveCurrentDuration)
+    }
+    
+    /// Total seconds over the last 7 days.
+    public func total7DaySeconds(referenceDate: Date = Date(), liveCurrentDuration: TimeInterval = 0) -> Int {
+        return totalPeriodSeconds(days: 7, referenceDate: referenceDate, liveCurrentDuration: liveCurrentDuration)
+    }
+    
+    /// Formatted total screen time for the specified number of days.
+    public func totalPeriodFormatted(days: Int = 35, referenceDate: Date = Date(), liveCurrentDuration: TimeInterval = 0) -> String {
+        let total = totalPeriodSeconds(days: days, referenceDate: referenceDate, liveCurrentDuration: liveCurrentDuration)
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else {
+            return "\(minutes)m"
+        }
     }
     
     /// Returns day-by-day summary for each of the last N days (default 7 days).

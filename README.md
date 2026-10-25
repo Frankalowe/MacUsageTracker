@@ -11,14 +11,14 @@ A native macOS status bar menu application that automatically tracks your active
 * **Live Status Bar Counter:** Displays live uptime in the macOS menu bar (e.g. `💻 1h 24m`), counting up continuously while your Mac is awake.
 * **1-Minute Filter:** Automatically filters out accidental lid opens or brief wake glitches under 60 seconds.
 
-### 🕒 7-Day Usage Retention & Auto-Purge
-* **Strict 7-Day Storage:** Stores all wake-to-sleep usage periods locally for exactly 7 days.
-* **Automatic Purging:** Any session older than 7 days is automatically deleted on launch and hourly.
-* **Interactive 7-Day History Window:**
-  * Total 7-day screen time, session count, and daily average.
-  * Day-by-day interactive bar chart.
+### 🕒 35-Day Retention & Monthly Work Analysis
+* **35-Day Local Storage:** Stores all wake-to-sleep usage periods locally for 35 days (covering a full 30/31-day month plus buffer).
+* **Automatic Purging:** Any session older than 35 days is automatically deleted on launch and hourly.
+* **Interactive Monthly History Window:**
+  * Total monthly screen time, session count, and daily average.
+  * Day-by-day interactive chart with toggle between 35-day monthly view and 7-day weekly view.
   * Chronological session timelines showing exact start & end times (e.g., `09:15 AM – 11:42 AM`) and duration (`2h 27m`).
-  * Day filtering to isolate any day's sessions.
+  * Day filtering to isolate any day's sessions across the month.
 
 ### 🔔 Smart Reminders & Motivators
 * **🧘 90-Minute Stretch & Hydrate:** Every 90 minutes of active continuous work, sends a notification reminder to stretch, look away from the display, and hydrate.

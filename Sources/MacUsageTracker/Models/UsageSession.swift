@@ -73,7 +73,11 @@ public struct UsageSession: Identifiable, Codable, Equatable, Sendable {
     }
 
     public func isWithinLast7Days(referenceDate: Date = Date()) -> Bool {
-        let retentionSeconds: TimeInterval = 7 * 24 * 60 * 60
+        isWithinRetentionPeriod(referenceDate: referenceDate, days: 7)
+    }
+
+    public func isWithinRetentionPeriod(referenceDate: Date = Date(), days: Int = 35) -> Bool {
+        let retentionSeconds: TimeInterval = TimeInterval(days * 24 * 60 * 60)
         return startTime >= referenceDate.addingTimeInterval(-retentionSeconds)
     }
 }

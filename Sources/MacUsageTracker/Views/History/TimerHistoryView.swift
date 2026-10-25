@@ -2,6 +2,7 @@ import SwiftUI
 
 @MainActor
 final class HistoryUIState: ObservableObject {
+    @Published var selectedPeriodDays: Int = 35 // Default: 35 days for full month analysis
     @Published var selectedDateKey: String? = nil
     @Published var showingClearConfirmation: Bool = false
 }
@@ -14,17 +15,17 @@ public struct TimerHistoryView: View {
     
     public init() {}
     
-    private var all7DaySessions: [UsageSession] {
-        dataManager.sessionsInLast7Days()
+    private var allPeriodSessions: [UsageSession] {
+        dataManager.sessionsInLastDays(days: uiState.selectedPeriodDays)
     }
     
     private var filteredSessions: [UsageSession] {
         if let key = uiState.selectedDateKey {
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd"
-            return all7DaySessions.filter { formatter.string(from: $0.startTime) == key }
+            return allPeriodSessions.filter { formatter.string(from: $0.startTime) == key }
         }
-        return all7DaySessions
+        return allPeriodSessions
     }
     
     // Group records by relative day header
@@ -46,16 +47,16 @@ public struct TimerHistoryView: View {
     }
     
     private var dailySummaries: [DayUsageSummary] {
-        dataManager.dailyUsageSummaries(lastDays: 7, liveCurrentDuration: usageEngine.currentSessionDuration)
+        dataManager.dailyUsageSummaries(lastDays: uiState.selectedPeriodDays, liveCurrentDuration: usageEngine.currentSessionDuration)
     }
     
-    private var total7DaySeconds: Int {
-        dataManager.total7DaySeconds(liveCurrentDuration: usageEngine.currentSessionDuration)
+    private var totalPeriodSeconds: Int {
+        dataManager.totalPeriodSeconds(days: uiState.selectedPeriodDays, liveCurrentDuration: usageEngine.currentSessionDuration)
     }
     
-    private var total7DayFormatted: String {
-        let hours = total7DaySeconds / 3600
-        let minutes = (total7DaySeconds % 3600) / 60
+    private var totalPeriodFormatted: String {
+        let hours = totalPeriodSeconds / 3600
+        let minutes = (totalPeriodSeconds % 3600) / 60
         if hours > 0 {
             return "\(hours)h \(minutes)m"
         } else {
@@ -64,8 +65,8 @@ public struct TimerHistoryView: View {
     }
     
     private var dailyAverageFormatted: String {
-        let daysCount = max(1, dailySummaries.filter { $0.totalSeconds > 0 }.count)
-        let avgSeconds = total7DaySeconds / daysCount
+        let activeDaysCount = max(1, dailySummaries.filter { $0.totalSeconds > 0 }.count)
+        let avgSeconds = totalPeriodSeconds / activeDaysCount
         let hours = avgSeconds / 3600
         let minutes = (avgSeconds % 3600) / 60
         if hours > 0 {
@@ -84,7 +85,7 @@ public struct TimerHistoryView: View {
                         Text("Mac Usage History")
                             .font(.system(size: 16, weight: .bold))
                         
-                        Text("Past 7 Days")
+                        Text(uiState.selectedPeriodDays == 35 ? "Past 35 Days (Monthly Analysis)" : "Past 7 Days (Weekly)")
                             .font(.system(size: 11, weight: .semibold))
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
@@ -93,14 +94,22 @@ public struct TimerHistoryView: View {
                             .clipShape(Capsule())
                     }
                     
-                    Text("Auto-recorded wake-to-sleep periods • Automatically deleted after 7 days")
+                    Text("Auto-recorded wake-to-sleep periods • Stored for 35 days for full monthly work analysis")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
                 
                 Spacer()
                 
-                if !all7DaySessions.isEmpty {
+                // Period Switcher (35 Days vs 7 Days)
+                Picker("", selection: $uiState.selectedPeriodDays) {
+                    Text("35 Days (Month)").tag(35)
+                    Text("7 Days (Week)").tag(7)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 190)
+                
+                if !allPeriodSessions.isEmpty {
                     Button(action: {
                         uiState.showingClearConfirmation = true
                     }) {
@@ -128,18 +137,18 @@ public struct TimerHistoryView: View {
             
             Divider()
             
-            // 7-Day Metrics Cards
+            // Metrics Cards
             HStack(spacing: 14) {
                 MetricCard(
-                    title: "Total Screen Time (7d)",
-                    value: total7DayFormatted,
+                    title: "Total Screen Time (\(uiState.selectedPeriodDays)d)",
+                    value: totalPeriodFormatted,
                     icon: "laptopcomputer",
                     color: .accentColor
                 )
                 
                 MetricCard(
-                    title: "Sessions Used (7d)",
-                    value: "\(all7DaySessions.count)",
+                    title: "Sessions Used (\(uiState.selectedPeriodDays)d)",
+                    value: "\(allPeriodSessions.count)",
                     icon: "bolt.badge.clock.fill",
                     color: .green
                 )
@@ -155,10 +164,10 @@ public struct TimerHistoryView: View {
             .padding(.top, 14)
             .padding(.bottom, 10)
             
-            // 7-Day Daily Breakdown Bar
+            // Daily Breakdown Strip
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("DAILY SCREEN TIME (LAST 7 DAYS)")
+                    Text("DAILY SCREEN TIME (LAST \(uiState.selectedPeriodDays) DAYS)")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(.secondary)
                     
@@ -174,43 +183,46 @@ public struct TimerHistoryView: View {
                     }
                 }
                 
-                HStack(spacing: 8) {
-                    ForEach(dailySummaries) { summary in
-                        let isSelected = uiState.selectedDateKey == summary.dateKey
-                        Button(action: {
-                            if uiState.selectedDateKey == summary.dateKey {
-                                uiState.selectedDateKey = nil
-                            } else {
-                                uiState.selectedDateKey = summary.dateKey
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(dailySummaries) { summary in
+                            let isSelected = uiState.selectedDateKey == summary.dateKey
+                            Button(action: {
+                                if uiState.selectedDateKey == summary.dateKey {
+                                    uiState.selectedDateKey = nil
+                                } else {
+                                    uiState.selectedDateKey = summary.dateKey
+                                }
+                            }) {
+                                VStack(spacing: 4) {
+                                    Text(summary.dayLabel)
+                                        .font(.system(size: 9, weight: summary.isToday ? .bold : .medium))
+                                        .foregroundColor(summary.isToday ? .accentColor : .secondary)
+                                    
+                                    Text(summary.totalHoursFormatted)
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(summary.totalSeconds > 0 ? .primary : .secondary.opacity(0.6))
+                                    
+                                    Text("\(summary.sessionCount)s")
+                                        .font(.system(size: 8))
+                                        .foregroundColor(.secondary)
+                                }
+                                .frame(width: 54)
+                                .padding(.vertical, 6)
+                                .background(
+                                    isSelected ? Color.accentColor.opacity(0.18) :
+                                    (summary.isToday ? Color.accentColor.opacity(0.08) : Color.gray.opacity(0.08))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
-                        }) {
-                            VStack(spacing: 4) {
-                                Text(summary.dayLabel)
-                                    .font(.system(size: 10, weight: summary.isToday ? .bold : .medium))
-                                    .foregroundColor(summary.isToday ? .accentColor : .secondary)
-                                
-                                Text(summary.totalHoursFormatted)
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(summary.totalSeconds > 0 ? .primary : .secondary.opacity(0.6))
-                                
-                                Text("\(summary.sessionCount) \(summary.sessionCount == 1 ? "session" : "sessions")")
-                                    .font(.system(size: 8))
-                                    .foregroundColor(.secondary)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(
-                                isSelected ? Color.accentColor.opacity(0.18) :
-                                (summary.isToday ? Color.accentColor.opacity(0.08) : Color.gray.opacity(0.08))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .padding(.vertical, 2)
                 }
             }
             .padding(.horizontal, 20)
@@ -226,11 +238,11 @@ public struct TimerHistoryView: View {
                         .font(.system(size: 38))
                         .foregroundColor(.secondary.opacity(0.5))
                     
-                    Text(all7DaySessions.isEmpty ? "No sessions recorded yet in the past 7 days" : "No sessions for this day")
+                    Text(allPeriodSessions.isEmpty ? "No sessions recorded yet in the past \(uiState.selectedPeriodDays) days" : "No sessions for this selected day")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.primary)
                     
-                    Text(all7DaySessions.isEmpty ? "When you use your MacBook and put it to sleep or shut down, each session (≥ 1 minute) will be automatically recorded here." : "Try selecting a different day.")
+                    Text(allPeriodSessions.isEmpty ? "When you use your MacBook and put it to sleep or shut down, each session (≥ 1 minute) will be saved and retained for 35 days." : "Try selecting a different day.")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -281,11 +293,11 @@ public struct TimerHistoryView: View {
             
             // Bottom Info Bar
             HStack {
-                Image(systemName: "shield.lefthalf.filled")
+                Image(systemName: "calendar.badge.clock")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                 
-                Text("Automatic 7-Day Purge: Session records older than 7 days are automatically removed on app launch and hourly.")
+                Text("Automatic 35-Day Retention: Sessions are kept for 35 days (full monthly analysis) and purged automatically thereafter.")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
                 
@@ -295,7 +307,7 @@ public struct TimerHistoryView: View {
             .padding(.vertical, 8)
             .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(minWidth: 580, minHeight: 620)
+        .frame(minWidth: 640, minHeight: 650)
     }
 }
 

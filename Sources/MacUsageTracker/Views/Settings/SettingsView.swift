@@ -71,12 +71,12 @@ public struct SettingsView: View {
                     }
                 }
                 
-                Section("7-Day Storage Policy") {
+                Section("35-Day Storage Policy (Monthly Analysis)") {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Text("Retention Policy:")
                                 .font(.system(size: 11, weight: .medium))
-                            Text("7 Days (Auto-deleted after 7 days)")
+                            Text("35 Days (Full Month Analysis)")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
                         }
@@ -84,13 +84,13 @@ public struct SettingsView: View {
                         HStack {
                             Text("Stored Sessions:")
                                 .font(.system(size: 11, weight: .medium))
-                            Text("\(dataManager.sessionsInLast7Days().count) periods in last 7 days")
+                            Text("\(dataManager.sessionsInRetentionPeriod().count) periods in last 35 days")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
                         }
                         
                         HStack(spacing: 10) {
-                            Button("View 7-Day History ↗") {
+                            Button("View Monthly History ↗") {
                                 TimerHistoryWindowController.shared.showWindow()
                             }
                             .buttonStyle(.borderedProminent)
