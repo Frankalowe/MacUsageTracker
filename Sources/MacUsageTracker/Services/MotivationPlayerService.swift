@@ -25,8 +25,8 @@ public final class MotivationPlayerService: NSObject, ObservableObject, AVAudioP
             let quote = await NotificationService.shared.getMotivationalQuote()
             NotificationService.shared.sendNotification(
                 title: "⚡ Motivation Boost",
-                subtitle: "Stay Locked In",
-                body: "\"\(quote.quote)\" — \(quote.author)"
+                subtitle: "— \(quote.author)",
+                body: "\"\(quote.quote)\""
             )
         }
     }

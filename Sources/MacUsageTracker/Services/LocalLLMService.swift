@@ -440,16 +440,32 @@ public final class LocalLLMService: ObservableObject {
         let cleanEndpoint = endpoint.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard let url = URL(string: "\(cleanEndpoint)/api/generate") else { return nil }
         
+        let domains = [
+            "technology & computer science pioneers (e.g. Steve Jobs, Alan Turing, Linus Torvalds, Claude Shannon, Grace Hopper, Ada Lovelace, Jensen Huang)",
+            "great philosophers & stoics (e.g. Marcus Aurelius, Seneca, Aristotle, Epictetus, Friedrich Nietzsche, Confucius, Lao Tzu)",
+            "world-renowned scientists & physicists (e.g. Albert Einstein, Richard Feynman, Marie Curie, Isaac Newton, Stephen Hawking, Galileo Galilei)",
+            "historic leaders & visionaries (e.g. Winston Churchill, Theodore Roosevelt, Nelson Mandela, Abraham Lincoln, Benjamin Franklin, Eleanor Roosevelt)",
+            "elite champions & athletes (e.g. Michael Jordan, Kobe Bryant, Muhammad Ali, Serena Williams, Bruce Lee)",
+            "legendary inventors & innovators (e.g. Leonardo da Vinci, Nikola Tesla, Thomas Edison, Henry Ford, Alexander Graham Bell)"
+        ]
+        let chosenDomain = domains.randomElement() ?? "visionaries"
+        
         let prompt = """
-        You are an inspiring mentor. Generate a short, punchy, single-sentence motivational quote for someone deep into focused work on their laptop.
-        Format strictly as JSON: {"quote": "...", "author": "..."}
+        Quote an authentic, famous motivational quote from a REAL person in \(chosenDomain).
+        The author MUST be a real, notable historical or modern figure. Do NOT fabricate quotes, and do NOT use "Anonymous" or "AI Mentor".
+        Choose a different quote every time.
+        Format strictly as JSON: {"quote": "The quote text", "author": "Full Name of Real Person"}
         """
         
         let requestPayload: [String: Any] = [
             "model": selectedModel,
             "prompt": prompt,
             "format": "json",
-            "stream": false
+            "stream": false,
+            "options": [
+                "temperature": 0.92,
+                "top_p": 0.95
+            ]
         ]
         
         guard let bodyData = try? JSONSerialization.data(withJSONObject: requestPayload) else {
@@ -476,11 +492,16 @@ public final class LocalLLMService: ObservableObject {
             
             let quote = (quoteJson["quote"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let rawAuthor = (quoteJson["author"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let author = rawAuthor.isEmpty ? "AI Mentor" : rawAuthor
+            
+            // Reject generic or anonymous placeholders to ensure 100% real people
+            let banned = ["ai mentor", "anonymous", "unknown", "ai", "mentor", "various", "author", ""]
+            if banned.contains(rawAuthor.lowercased()) || rawAuthor.count < 3 {
+                return nil
+            }
             
             guard !quote.isEmpty else { return nil }
             
-            let result = (quote: quote, author: author)
+            let result = (quote: quote, author: rawAuthor)
             self.lastGeneratedQuote = result
             return result
         } catch {

@@ -381,8 +381,8 @@ public final class UsageTrackerEngine: ObservableObject {
                     let item = await NotificationService.shared.getMotivationalQuote()
                     NotificationService.shared.sendNotification(
                         title: "⚡ Hour \(quoteInterval) Milestone",
-                        subtitle: "Keep Going Strong",
-                        body: "\"\(item.quote)\" — \(item.author)"
+                        subtitle: "— \(item.author)",
+                        body: "\"\(item.quote)\""
                     )
                 }
             }
