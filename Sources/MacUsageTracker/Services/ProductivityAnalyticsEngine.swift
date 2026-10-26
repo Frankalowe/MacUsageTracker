@@ -46,6 +46,9 @@ public struct RealProductivityReport: Codable {
     
     // 7. Daily Trend Points (Last 7 Days)
     public var dailyTrends: [DailyTrendPoint]
+    
+    // 8. Live Input Telemetry & Predicted State
+    public var telemetry: ActivityTelemetryData?
 }
 
 @MainActor
@@ -108,7 +111,8 @@ public final class ProductivityAnalyticsEngine {
         liveAppUsage: [String: Int] = [:],
         liveWebsiteUsage: [String: Int] = [:],
         liveCurrentDuration: TimeInterval = 0,
-        periodDays: Int = 7
+        periodDays: Int = 7,
+        telemetry: ActivityTelemetryData? = nil
     ) -> RealProductivityReport {
         // 1. Consolidate App and Website Usage Totals
         var aggregatedApps: [String: Int] = [:]
@@ -357,7 +361,8 @@ public final class ProductivityAnalyticsEngine {
             categories: categories,
             topPrograms: topProgs,
             topWebsites: topWebs,
-            dailyTrends: dailyPoints
+            dailyTrends: dailyPoints,
+            telemetry: telemetry ?? InputTelemetryEngine.shared.currentTelemetryData()
         )
     }
     

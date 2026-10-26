@@ -30,7 +30,7 @@
   </style>
   <!-- REAL_ANALYTICS_DATA_START -->
   <script id="real-analytics-data" type="application/json">
-  {"periodDays":7,"productivityGrade":"High Focus","totalScreenTimeSeconds":46789,"categories":[{"percentage":54,"seconds":26495,"name":"Development","colorHex":"#3B82F6"},{"percentage":32,"seconds":15901,"name":"Web Research","colorHex":"#10B981"},{"percentage":4,"seconds":1825,"name":"Communication","colorHex":"#F59E0B"},{"percentage":9,"seconds":4492,"name":"Media","colorHex":"#8B5CF6"},{"percentage":1,"seconds":511,"name":"System","colorHex":"#64748B"}],"topPrograms":[{"percentage":0.3354054932553226,"durationSeconds":16510,"name":"Antigravity"},{"percentage":0.2614578254509995,"durationSeconds":12870,"name":"Google Chrome"},{"percentage":0.0720380302291565,"durationSeconds":3546,"name":"YouTube"},{"percentage":0.035145457500406305,"durationSeconds":1730,"name":"Terminal"},{"percentage":0.033621810498943604,"durationSeconds":1655,"name":"‎WhatsApp"},{"percentage":0.01840565577766943,"durationSeconds":906,"name":"Brave Browser"}],"peakWindowTimeRange":"9:00 AM – 12:00 PM","peakWindowName":"Morning","productivityRatioDescription":"High Productive Focus","totalScreenTimeFormatted":"12h 59m","longestStreakSeconds":40147,"productivityScore":80,"deepWorkPercentage":54,"longestStreakFormatted":"11h 9m","deepWorkSummary":"Antigravity, ClipForge (localhost:3000), Terminal","dailyTrends":[{"totalHours":0,"deepWorkHours":0,"dayLabel":"Tue"},{"totalHours":0,"deepWorkHours":0,"dayLabel":"Wed"},{"totalHours":0,"deepWorkHours":0,"dayLabel":"Thu"},{"totalHours":0.8,"deepWorkHours":0,"dayLabel":"Fri"},{"totalHours":0.4,"deepWorkHours":0,"dayLabel":"Sat"},{"totalHours":11.6,"deepWorkHours":7.2,"dayLabel":"Sun"},{"totalHours":0.2,"deepWorkHours":0.1,"dayLabel":"Today"}],"topWebsites":[{"percentage":0.166626036079961,"durationSeconds":8202,"domain":"ClipForge (localhost:3000)"},{"percentage":0.0072728750203152935,"durationSeconds":358,"domain":"google.com"},{"percentage":0.005952380952380952,"durationSeconds":293,"domain":"youtube.com"},{"percentage":0.002742564602632862,"durationSeconds":135,"domain":"metadata2go.com"},{"percentage":0.001340809361287177,"durationSeconds":66,"domain":"exif.tools"},{"percentage":0.0001422070534698521,"durationSeconds":7,"domain":"ClipForge (localhost:3000)enson"}]}
+  {"peakWindowTimeRange":"9:00 AM – 12:00 PM","deepWorkSummary":"Antigravity, ClipForge (localhost:3000), Terminal","dailyTrends":[{"deepWorkHours":0,"dayLabel":"Tue","totalHours":0},{"deepWorkHours":0,"dayLabel":"Wed","totalHours":0},{"deepWorkHours":0,"dayLabel":"Thu","totalHours":0},{"deepWorkHours":0,"dayLabel":"Fri","totalHours":0.8},{"deepWorkHours":0,"dayLabel":"Sat","totalHours":0.4},{"deepWorkHours":7.2,"dayLabel":"Sun","totalHours":11.6},{"dayLabel":"Today","totalHours":0.5,"deepWorkHours":0.3}],"totalScreenTimeSeconds":48016,"deepWorkPercentage":53,"productivityRatioDescription":"High Productive Focus","categories":[{"seconds":27107,"name":"Development","percentage":53,"colorHex":"#3B82F6"},{"seconds":16930,"name":"Web Research","percentage":33,"colorHex":"#10B981"},{"seconds":1860,"name":"Communication","percentage":4,"colorHex":"#F59E0B"},{"seconds":4508,"name":"Media","percentage":9,"colorHex":"#8B5CF6"},{"seconds":620,"name":"System","percentage":1,"colorHex":"#64748B"}],"productivityScore":80,"topWebsites":[{"durationSeconds":8523,"domain":"ClipForge (localhost:3000)","percentage":0.16703576678098972},{"durationSeconds":495,"domain":"google.com","percentage":0.009701126898579129},{"durationSeconds":293,"domain":"youtube.com","percentage":0.005742283194512494},{"durationSeconds":157,"domain":"facebook.com","percentage":0.003076923076923077},{"durationSeconds":135,"domain":"metadata2go.com","percentage":0.0026457618814306715},{"durationSeconds":66,"domain":"exif.tools","percentage":0.001293483586477217}],"productivityGrade":"High Focus","telemetry":{"workingSeconds":25,"idleSeconds":0,"keystrokesPerMinute":0,"currentAppName":"Google Chrome","currentWindowTitle":"ClipForge AI — Local Video Clipping Studio for Apple Silicon","mouseClicksPerMinute":1,"totalKeystrokes":13,"readingSeconds":0,"currentState":"Working","totalMouseClicks":22,"watchingSeconds":0,"cursorDistanceMeters":0.4},"periodDays":7,"topPrograms":[{"durationSeconds":16801,"name":"Antigravity","percentage":0.3292699657030867},{"durationSeconds":13598,"name":"Google Chrome","percentage":0.2664968152866242},{"durationSeconds":3546,"name":"YouTube","percentage":0.0694953454189123},{"durationSeconds":1730,"name":"Terminal","percentage":0.03390494855463008},{"durationSeconds":1690,"name":"‎WhatsApp","percentage":0.033121019108280254},{"durationSeconds":913,"name":"Brave Browser","percentage":0.017893189612934835}],"totalScreenTimeFormatted":"13h 20m","longestStreakSeconds":40147,"longestStreakFormatted":"11h 9m","peakWindowName":"Morning"}
   </script>
   <!-- REAL_ANALYTICS_DATA_END -->
 </head>
@@ -179,6 +179,92 @@
           <p class="text-xs text-slate-300 leading-relaxed">
             Your peak cognitive output occurs between <strong class="text-white">9:30 AM – 1:00 PM</strong>. Reserve that exact morning window for new feature implementation.
           </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Real-Time Activity & Input Telemetry Intelligence -->
+    <div class="bg-macCard border border-macBorder rounded-2xl p-6 shadow-sm">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-macBorder">
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="text-xl">⚡</span>
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Activity Intelligence & Input Telemetry</h3>
+            <span id="telemetry-badge" class="px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="telemetry-state-label">👨‍💻 Deep Working</span>
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">Multi-modal classification combining keystroke velocity, cursor trajectory, and active window titles</p>
+        </div>
+
+        <div id="telemetry-window-card" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900/60 border border-slate-800 rounded-xl text-xs max-w-md truncate">
+          <span class="text-slate-400">Active Window:</span>
+          <span id="telemetry-window-title" class="font-medium text-white truncate">ClipForge — Video Studio</span>
+        </div>
+      </div>
+
+      <!-- Telemetry Metric Counters -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
+        <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400">Typing Velocity</span>
+            <span class="text-blue-400">⌨️</span>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="telemetry-kpm" class="text-2xl font-bold mono text-blue-400">68</span>
+            <span class="text-xs text-slate-400">keys/min</span>
+          </div>
+          <p id="telemetry-total-keys" class="text-xs text-slate-500 mt-1">Total: 4,820 keys</p>
+        </div>
+
+        <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400">Mouse Clicks</span>
+            <span class="text-amber-400">🖱️</span>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="telemetry-cpm" class="text-2xl font-bold mono text-amber-400">24</span>
+            <span class="text-xs text-slate-400">clicks/min</span>
+          </div>
+          <p id="telemetry-total-clicks" class="text-xs text-slate-500 mt-1">Total: 1,340 clicks</p>
+        </div>
+
+        <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400">Cursor Travel</span>
+            <span class="text-purple-400">📍</span>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="telemetry-distance" class="text-2xl font-bold mono text-purple-400">312.4 m</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Tracked screen distance</p>
+        </div>
+
+        <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400">Work vs Watch Ratio</span>
+            <span class="text-emerald-400">⚖️</span>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="telemetry-ratio" class="text-2xl font-bold mono text-emerald-400">82%</span>
+            <span class="text-xs text-slate-400">Work Focus</span>
+          </div>
+          <p id="telemetry-watch-sub" class="text-xs text-slate-500 mt-1">18% Watching Media</p>
+        </div>
+      </div>
+
+      <!-- Split Progress Bar -->
+      <div class="mt-4 pt-4 border-t border-slate-800/80">
+        <div class="flex items-center justify-between text-xs mb-1.5 font-mono">
+          <span class="text-blue-400 flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span> Working: <span id="bar-work-time">4h 10m</span> (<span id="bar-work-pct">82%</span>)</span>
+          <span class="text-purple-400 flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-purple-500"></span> Watching: <span id="bar-watch-time">55m</span> (<span id="bar-watch-pct">18%</span>)</span>
+          <span class="text-slate-400 flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-slate-600"></span> Idle / Away: <span id="bar-idle-time">25m</span></span>
+        </div>
+        <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden flex">
+          <div id="prog-work" class="bg-blue-500 h-full transition-all duration-500" style="width: 82%"></div>
+          <div id="prog-watch" class="bg-purple-500 h-full transition-all duration-500" style="width: 18%"></div>
+          <div id="prog-research" class="bg-amber-500 h-full transition-all duration-500" style="width: 0%"></div>
         </div>
       </div>
     </div>
@@ -522,6 +608,77 @@
         if (m > 0) return `${m}m`;
         return `${sec}s`;
       };
+
+      // Update Activity & Input Telemetry
+      if (data.telemetry) {
+        const t = data.telemetry;
+        
+        // State label & badge
+        const badgeEl = document.getElementById('telemetry-badge');
+        const stateLabelEl = document.getElementById('telemetry-state-label');
+        if (stateLabelEl && t.currentState) {
+          const state = t.currentState;
+          if (state === "Working") {
+            stateLabelEl.innerText = "👨‍💻 Deep Working";
+            if (badgeEl) badgeEl.className = "px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full flex items-center gap-1.5";
+          } else if (state === "Watching Something") {
+            stateLabelEl.innerText = "🎬 Watching Video / Stream";
+            if (badgeEl) badgeEl.className = "px-2.5 py-0.5 text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-full flex items-center gap-1.5";
+          } else if (state === "Active Research") {
+            stateLabelEl.innerText = "📖 Active Research & Reading";
+            if (badgeEl) badgeEl.className = "px-2.5 py-0.5 text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full flex items-center gap-1.5";
+          } else {
+            stateLabelEl.innerText = "☕ Idle / Away";
+            if (badgeEl) badgeEl.className = "px-2.5 py-0.5 text-xs font-semibold bg-slate-500/20 text-slate-400 border border-slate-500/30 rounded-full flex items-center gap-1.5";
+          }
+        }
+
+        // Window Title
+        const winTitleEl = document.getElementById('telemetry-window-title');
+        if (winTitleEl) {
+          winTitleEl.innerText = t.currentWindowTitle || t.currentAppName || "General Desktop";
+        }
+
+        // Metrics
+        if (document.getElementById('telemetry-kpm')) {
+          document.getElementById('telemetry-kpm').innerText = t.keystrokesPerMinute !== undefined ? t.keystrokesPerMinute : 0;
+        }
+        if (document.getElementById('telemetry-total-keys')) {
+          document.getElementById('telemetry-total-keys').innerText = `Total: ${(t.totalKeystrokes || 0).toLocaleString()} keys`;
+        }
+        if (document.getElementById('telemetry-cpm')) {
+          document.getElementById('telemetry-cpm').innerText = t.mouseClicksPerMinute !== undefined ? t.mouseClicksPerMinute : 0;
+        }
+        if (document.getElementById('telemetry-total-clicks')) {
+          document.getElementById('telemetry-total-clicks').innerText = `Total: ${(t.totalMouseClicks || 0).toLocaleString()} clicks`;
+        }
+        if (document.getElementById('telemetry-distance')) {
+          document.getElementById('telemetry-distance').innerText = `${(t.cursorDistanceMeters || 0).toFixed(1)} m`;
+        }
+
+        // Work vs Watch Ratio
+        const workPct = t.workPercentage !== undefined ? t.workPercentage : 80;
+        const watchPct = t.watchPercentage !== undefined ? t.watchPercentage : 20;
+        const researchPct = t.researchPercentage !== undefined ? t.researchPercentage : 0;
+
+        if (document.getElementById('telemetry-ratio')) {
+          document.getElementById('telemetry-ratio').innerText = `${workPct}%`;
+        }
+        if (document.getElementById('telemetry-watch-sub')) {
+          document.getElementById('telemetry-watch-sub').innerText = `${watchPct}% Watching Media`;
+        }
+
+        // Progress bar and times
+        if (document.getElementById('prog-work')) document.getElementById('prog-work').style.width = `${workPct}%`;
+        if (document.getElementById('prog-watch')) document.getElementById('prog-watch').style.width = `${watchPct}%`;
+        if (document.getElementById('prog-research')) document.getElementById('prog-research').style.width = `${researchPct}%`;
+
+        if (document.getElementById('bar-work-time')) document.getElementById('bar-work-time').innerText = formatSec(t.workingSeconds || 0);
+        if (document.getElementById('bar-work-pct')) document.getElementById('bar-work-pct').innerText = `${workPct}%`;
+        if (document.getElementById('bar-watch-time')) document.getElementById('bar-watch-time').innerText = formatSec(t.watchingSeconds || 0);
+        if (document.getElementById('bar-watch-pct')) document.getElementById('bar-watch-pct').innerText = `${watchPct}%`;
+        if (document.getElementById('bar-idle-time')) document.getElementById('bar-idle-time').innerText = formatSec(t.idleSeconds || 0);
+      }
 
       // Update Top Applications list
       if (data.topPrograms && data.topPrograms.length > 0) {

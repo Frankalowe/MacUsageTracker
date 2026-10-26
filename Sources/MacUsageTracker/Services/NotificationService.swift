@@ -62,6 +62,18 @@ public final class NotificationService: NSObject, UNUserNotificationCenterDelega
     // MARK: - Notification Dispatch
     
     public func sendNotification(title: String, subtitle: String? = nil, body: String) {
+        // 1. In-App Floating Toast Window (Always displays on screen, bypasses Do Not Disturb & permission blocks)
+        ToastNotificationWindowController.shared.showToast(
+            title: title,
+            subtitle: subtitle,
+            body: body,
+            icon: title.contains("Stretch") ? "drop.fill" : "bolt.fill"
+        )
+        
+        // 2. Native System Events dispatch via osascript (Bypasses ad-hoc sandbox restrictions)
+        deliverViaSystemEvents(title: title, subtitle: subtitle, body: body)
+        
+        // 3. Standard UNUserNotificationCenter dispatch (if authorized)
         let content = UNMutableNotificationContent()
         content.title = title
         if let subtitle = subtitle, !subtitle.isEmpty {
@@ -73,41 +85,33 @@ public final class NotificationService: NSObject, UNUserNotificationCenterDelega
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,
             content: content,
-            trigger: nil // Deliver immediately
+            trigger: nil
         )
         
-        UNUserNotificationCenter.current().add(request) { [weak self] error in
+        UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("UNUserNotificationCenter delivery issue: \(error.localizedDescription), falling back to native alert")
-                Task { @MainActor in
-                    self?.deliverViaAppleScript(title: title, subtitle: subtitle, body: body)
-                }
+                print("UNUserNotificationCenter note: \(error.localizedDescription)")
             }
-        }
-        
-        // If UNUserNotificationCenter is not explicitly authorized yet, also guarantee delivery via AppleScript fallback
-        if self.authorizationStatus != .authorized {
-            deliverViaAppleScript(title: title, subtitle: subtitle, body: body)
         }
     }
     
-    public func deliverViaAppleScript(title: String, subtitle: String?, body: String) {
+    public func deliverViaSystemEvents(title: String, subtitle: String?, body: String) {
         let escapedTitle = title.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
         let escapedSub = (subtitle ?? "").replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
         let escapedBody = body.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
         
         let scriptSource: String
         if !escapedSub.isEmpty {
-            scriptSource = "display notification \"\(escapedBody)\" with title \"\(escapedTitle)\" subtitle \"\(escapedSub)\" sound name \"default\""
+            scriptSource = "tell application \"System Events\" to display notification \"\(escapedBody)\" with title \"\(escapedTitle)\" subtitle \"\(escapedSub)\" sound name \"default\""
         } else {
-            scriptSource = "display notification \"\(escapedBody)\" with title \"\(escapedTitle)\" sound name \"default\""
+            scriptSource = "tell application \"System Events\" to display notification \"\(escapedBody)\" with title \"\(escapedTitle)\" sound name \"default\""
         }
         
         DispatchQueue.global(qos: .userInitiated).async {
-            var errorInfo: NSDictionary?
-            if let script = NSAppleScript(source: scriptSource) {
-                script.executeAndReturnError(&errorInfo)
-            }
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = ["-e", scriptSource]
+            try? process.run()
         }
     }
     

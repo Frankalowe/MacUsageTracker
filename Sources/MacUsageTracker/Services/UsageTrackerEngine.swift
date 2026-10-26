@@ -284,11 +284,18 @@ public final class UsageTrackerEngine: ObservableObject {
         
         checkNotificationTriggers()
         
+        // Track keyboard, mouse, active window, and predict Working vs. Watching
+        InputTelemetryEngine.shared.tick(
+            frontmostApp: currentFrontmostApp,
+            currentDomain: currentWebsiteDomain
+        )
+        
         // Persist active session state every 5 seconds so updates or restarts never lose progress
         let now = Date().timeIntervalSince1970
         if now - lastStateSaveTime >= 5.0 {
             lastStateSaveTime = now
             persistActiveSessionState()
+            InputTelemetryEngine.shared.saveTelemetry()
         }
         
         // Export real analytics data every 15 seconds for the web dashboard

@@ -24,6 +24,7 @@ public struct TimerHistoryView: View {
     @StateObject private var uiState = HistoryUIState()
     @StateObject private var localLLM = LocalLLMService.shared
     @StateObject private var motivationPlayer = MotivationPlayerService.shared
+    @StateObject private var inputTelemetry = InputTelemetryEngine.shared
     
     public init() {}
     
@@ -595,6 +596,191 @@ public struct TimerHistoryView: View {
                     .shadow(color: (motivationPlayer.isPlaying ? Color.purple : Color.orange).opacity(0.3), radius: 6, y: 2)
                 }
                 .buttonStyle(.plain)
+                
+                // Live Activity & Input Telemetry Intelligence Card
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(inputTelemetry.currentState == .working ? Color.green : (inputTelemetry.currentState == .watching ? Color.purple : Color.blue))
+                                .frame(width: 8, height: 8)
+                            Text("PREDICTED ACTIVITY:")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.secondary)
+                            Text(inputTelemetry.currentState.badgeLabel)
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(inputTelemetry.currentState == .working ? .green : (inputTelemetry.currentState == .watching ? .purple : .primary))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(
+                                    (inputTelemetry.currentState == .working ? Color.green : (inputTelemetry.currentState == .watching ? Color.purple : Color.blue)).opacity(0.15)
+                                )
+                                .clipShape(Capsule())
+                        }
+                        
+                        Spacer()
+                        
+                        if !inputTelemetry.currentAppName.isEmpty {
+                            HStack(spacing: 4) {
+                                Image(systemName: "app.window.checkmark")
+                                    .font(.system(size: 10))
+                                Text(inputTelemetry.currentAppName)
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                            .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    if !inputTelemetry.currentWindowTitle.isEmpty {
+                        HStack(spacing: 6) {
+                            Image(systemName: "macwindow")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                            Text(inputTelemetry.currentWindowTitle)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(NSColor.windowBackgroundColor).opacity(0.7))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    
+                    // Input Telemetry Counters
+                    HStack(spacing: 12) {
+                        // Keystrokes
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "keyboard")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.blue)
+                                Text("Typing Velocity")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundColor(.secondary)
+                            }
+                            Text("\(inputTelemetry.keystrokesPerMinute) kpm")
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            Text("Total: \(inputTelemetry.totalKeystrokes) keys")
+                                .font(.system(size: 9))
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(NSColor.windowBackgroundColor).opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        
+                        // Mouse Clicks
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "cursorarrow.click.2")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.orange)
+                                Text("Mouse Clicks")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundColor(.secondary)
+                            }
+                            Text("\(inputTelemetry.mouseClicksPerMinute) cpm")
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            Text("Total: \(inputTelemetry.totalMouseClicks) clicks")
+                                .font(.system(size: 9))
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(NSColor.windowBackgroundColor).opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        
+                        // Cursor Movement
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "location.north.line.fill")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.purple)
+                                Text("Cursor Travel")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundColor(.secondary)
+                            }
+                            Text(String(format: "%.1f m", inputTelemetry.cursorDistanceMeters))
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            Text("Pixels: \(Int(inputTelemetry.cursorDistanceMeters * 3779)) px")
+                                .font(.system(size: 9))
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(NSColor.windowBackgroundColor).opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    
+                    // Work vs. Watching Time Distribution Split
+                    let telemetryData = inputTelemetry.currentTelemetryData()
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("WORK VS. WATCHING PREDICTION BREAKDOWN")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text("Work \(telemetryData.workPercentage)% • Watching \(telemetryData.watchPercentage)%")
+                                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        GeometryReader { geo in
+                            HStack(spacing: 2) {
+                                Rectangle()
+                                    .fill(Color.blue)
+                                    .frame(width: max(2, geo.size.width * CGFloat(telemetryData.workPercentage) / 100.0))
+                                Rectangle()
+                                    .fill(Color.purple)
+                                    .frame(width: max(2, geo.size.width * CGFloat(telemetryData.watchPercentage) / 100.0))
+                                Rectangle()
+                                    .fill(Color.orange)
+                                    .frame(width: max(2, geo.size.width * CGFloat(telemetryData.researchPercentage) / 100.0))
+                            }
+                            .clipShape(Capsule())
+                        }
+                        .frame(height: 6)
+                        
+                        HStack(spacing: 12) {
+                            HStack(spacing: 4) {
+                                Circle().fill(Color.blue).frame(width: 6, height: 6)
+                                Text("Working: \(inputTelemetry.workingSeconds / 60)m")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                            HStack(spacing: 4) {
+                                Circle().fill(Color.purple).frame(width: 6, height: 6)
+                                Text("Watching: \(inputTelemetry.watchingSeconds / 60)m")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                            HStack(spacing: 4) {
+                                Circle().fill(Color.orange).frame(width: 6, height: 6)
+                                Text("Research: \(inputTelemetry.readingSeconds / 60)m")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                            HStack(spacing: 4) {
+                                Circle().fill(Color.gray).frame(width: 6, height: 6)
+                                Text("Idle: \(inputTelemetry.idleSeconds / 60)m")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .padding(10)
+                    .background(Color(NSColor.windowBackgroundColor).opacity(0.4))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .padding(14)
+                .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                )
                 
                 // 3 Real Analytics Score Cards (Calculated directly from actual tracked sessions)
                 HStack(spacing: 12) {

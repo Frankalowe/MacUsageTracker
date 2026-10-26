@@ -11,6 +11,7 @@ public struct MenuBarPopoverView: View {
     
     @StateObject private var uiState = PopoverUIState()
     @StateObject private var motivationPlayer = MotivationPlayerService.shared
+    @StateObject private var inputTelemetry = InputTelemetryEngine.shared
     
     public init() {}
     
@@ -128,6 +129,38 @@ public struct MenuBarPopoverView: View {
                     )
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
+                    
+                    // Live Activity Intelligence Pill
+                    HStack(spacing: 8) {
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(inputTelemetry.currentState == .working ? Color.green : (inputTelemetry.currentState == .watching ? Color.purple : Color.blue))
+                                .frame(width: 7, height: 7)
+                            Text(inputTelemetry.currentState.badgeLabel)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(inputTelemetry.currentState == .working ? .green : (inputTelemetry.currentState == .watching ? .purple : .primary))
+                        }
+                        
+                        Spacer()
+                        
+                        HStack(spacing: 6) {
+                            Text("⌨️ \(inputTelemetry.keystrokesPerMinute) kpm")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.secondary)
+                            Text("•")
+                                .font(.system(size: 8))
+                                .foregroundColor(.secondary)
+                            Text("🖱️ \(inputTelemetry.mouseClicksPerMinute) cpm")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .frame(maxWidth: .infinity)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .padding(.horizontal, 16)
                     
                     // Motivate Me Action Card
                     Button(action: {
