@@ -110,19 +110,24 @@ public final class ToastNotificationWindowController {
                 defer: false
             )
             p.isFloatingPanel = true
-            p.level = .floating
+            // Elevated popup level to float above full screen apps, modal sheets, and menu bars
+            p.level = .popUpMenu
             p.backgroundColor = .clear
             p.isOpaque = false
             p.hasShadow = false
-            p.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+            p.hidesOnDeactivate = false
+            // .fullScreenAuxiliary allows displaying over native full-screen apps and Do Not Disturb sessions
+            p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
             self.panel = p
         }
         
         guard let p = panel else { return }
         p.contentView = hostingView
         
-        // Position at top-right of main screen
-        if let screen = NSScreen.main {
+        // Position at top-right of the active screen where the user is currently working
+        let mouseLoc = NSEvent.mouseLocation
+        let targetScreen = NSScreen.screens.first(where: { NSMouseInRect(mouseLoc, $0.frame, false) }) ?? NSScreen.main ?? NSScreen.screens.first
+        if let screen = targetScreen {
             let screenRect = screen.visibleFrame
             let x = screenRect.maxX - 360
             let y = screenRect.maxY - 130
@@ -132,8 +137,10 @@ public final class ToastNotificationWindowController {
         p.alphaValue = 0.0
         p.orderFrontRegardless()
         
-        // Sound & Animation
-        NSSound(named: "Glass")?.play()
+        // Sound & Animation (Direct CoreAudio sound bypasses DND muting)
+        if !(NSSound(named: "Glass")?.play() ?? false) {
+            NSSound.beep()
+        }
         
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.25

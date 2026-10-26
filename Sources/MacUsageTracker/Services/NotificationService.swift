@@ -73,7 +73,7 @@ public final class NotificationService: NSObject, UNUserNotificationCenterDelega
         // 2. Native System Events dispatch via osascript (Bypasses ad-hoc sandbox restrictions)
         deliverViaSystemEvents(title: title, subtitle: subtitle, body: body)
         
-        // 3. Standard UNUserNotificationCenter dispatch (if authorized)
+        // 3. Standard UNUserNotificationCenter dispatch (with Time-Sensitive priority to break through Do Not Disturb)
         let content = UNMutableNotificationContent()
         content.title = title
         if let subtitle = subtitle, !subtitle.isEmpty {
@@ -81,6 +81,10 @@ public final class NotificationService: NSObject, UNUserNotificationCenterDelega
         }
         content.body = body
         content.sound = .default
+        if #available(macOS 12.0, *) {
+            content.interruptionLevel = .timeSensitive
+            content.relevanceScore = 1.0
+        }
         
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,

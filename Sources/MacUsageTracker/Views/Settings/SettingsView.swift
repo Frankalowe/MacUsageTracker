@@ -162,6 +162,21 @@ public struct SettingsView: View {
                         Spacer()
                     }
                     .padding(.top, 4)
+                    
+                    HStack(spacing: 6) {
+                        Image(systemName: "moon.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.purple)
+                        Text("Do Not Disturb Bypass:")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                        Text("Active (Floating HUD & Time-Sensitive Alert)")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.green)
+                    }
+                    .padding(8)
+                    .background(Color.green.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 
                 Section("35-Day Storage Policy (Monthly Analysis)") {
