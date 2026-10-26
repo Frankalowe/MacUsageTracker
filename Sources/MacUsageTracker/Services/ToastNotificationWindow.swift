@@ -25,7 +25,13 @@ public struct ToastNotificationView: View {
             // Icon
             ZStack {
                 Circle()
-                    .fill(LinearGradient(colors: [Color.orange, Color.red], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(red: 0.25, green: 0.88, blue: 0.55), Color(red: 0.1, green: 0.72, blue: 0.42)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .frame(width: 36, height: 36)
                 Image(systemName: data.icon)
                     .font(.system(size: 16, weight: .bold))
@@ -56,7 +62,7 @@ public struct ToastNotificationView: View {
                 if let sub = data.subtitle, !sub.isEmpty {
                     Text(sub)
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(Color(red: 0.15, green: 0.75, blue: 0.45))
                 }
                 
                 Text(data.body)
@@ -70,12 +76,13 @@ public struct ToastNotificationView: View {
         .frame(width: 340)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color(NSColor.windowBackgroundColor).opacity(0.95))
+                .fill(Color(NSColor.windowBackgroundColor).opacity(0.96))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.orange.opacity(0.3), lineWidth: 1.5)
+                .stroke(Color(red: 0.25, green: 0.88, blue: 0.55).opacity(0.45), lineWidth: 1.5)
         )
+        .shadow(color: Color(red: 0.15, green: 0.8, blue: 0.45).opacity(0.18), radius: 10, x: 0, y: 3)
         .shadow(color: Color.black.opacity(0.25), radius: 16, x: 0, y: 6)
     }
 }
