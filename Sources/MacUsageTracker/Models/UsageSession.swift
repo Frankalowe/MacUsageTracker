@@ -147,7 +147,7 @@ public struct DayUsageSummary: Identifiable, Sendable {
     }
 }
 
-public struct AppUsageStat: Identifiable, Sendable, Equatable {
+public struct AppUsageStat: Identifiable, Sendable, Equatable, Codable {
     public var id: String { name }
     public let name: String
     public let durationSeconds: Int
@@ -172,7 +172,7 @@ public struct AppUsageStat: Identifiable, Sendable, Equatable {
     }
 }
 
-public struct WebsiteUsageStat: Identifiable, Sendable, Equatable {
+public struct WebsiteUsageStat: Identifiable, Sendable, Equatable, Codable {
     public var id: String { domain }
     public let domain: String
     public let durationSeconds: Int

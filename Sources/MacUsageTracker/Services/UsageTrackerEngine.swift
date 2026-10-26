@@ -19,6 +19,7 @@ public final class UsageTrackerEngine: ObservableObject {
     private var lastBrowserDomainCheckTime: TimeInterval = 0
     private var cachedBrowserDomain: String? = nil
     private var lastStateSaveTime: TimeInterval = 0
+    private var lastAnalyticsExportTime: TimeInterval = 0
     private var lastExtensionReportTime: TimeInterval = 0
     private var extensionReportedDomain: String? = nil
     
@@ -288,6 +289,18 @@ public final class UsageTrackerEngine: ObservableObject {
         if now - lastStateSaveTime >= 5.0 {
             lastStateSaveTime = now
             persistActiveSessionState()
+        }
+        
+        // Export real analytics data every 15 seconds for the web dashboard
+        if now - lastAnalyticsExportTime >= 15.0 {
+            lastAnalyticsExportTime = now
+            DataManager.shared.exportAnalyticsForWebDashboard(
+                days: 7,
+                includeLive: true,
+                liveAppUsage: self.liveAppUsage,
+                liveWebsiteUsage: self.liveWebsiteUsage,
+                liveCurrentDuration: self.currentSessionDuration
+            )
         }
     }
     

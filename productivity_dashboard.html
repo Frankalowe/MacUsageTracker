@@ -28,6 +28,11 @@
     body { font-family: 'Inter', sans-serif; }
     .mono { font-family: 'JetBrains Mono', monospace; }
   </style>
+  <!-- REAL_ANALYTICS_DATA_START -->
+  <script id="real-analytics-data" type="application/json">
+  {"periodDays":7,"productivityGrade":"High Focus","totalScreenTimeSeconds":46789,"categories":[{"percentage":54,"seconds":26495,"name":"Development","colorHex":"#3B82F6"},{"percentage":32,"seconds":15901,"name":"Web Research","colorHex":"#10B981"},{"percentage":4,"seconds":1825,"name":"Communication","colorHex":"#F59E0B"},{"percentage":9,"seconds":4492,"name":"Media","colorHex":"#8B5CF6"},{"percentage":1,"seconds":511,"name":"System","colorHex":"#64748B"}],"topPrograms":[{"percentage":0.3354054932553226,"durationSeconds":16510,"name":"Antigravity"},{"percentage":0.2614578254509995,"durationSeconds":12870,"name":"Google Chrome"},{"percentage":0.0720380302291565,"durationSeconds":3546,"name":"YouTube"},{"percentage":0.035145457500406305,"durationSeconds":1730,"name":"Terminal"},{"percentage":0.033621810498943604,"durationSeconds":1655,"name":"‎WhatsApp"},{"percentage":0.01840565577766943,"durationSeconds":906,"name":"Brave Browser"}],"peakWindowTimeRange":"9:00 AM – 12:00 PM","peakWindowName":"Morning","productivityRatioDescription":"High Productive Focus","totalScreenTimeFormatted":"12h 59m","longestStreakSeconds":40147,"productivityScore":80,"deepWorkPercentage":54,"longestStreakFormatted":"11h 9m","deepWorkSummary":"Antigravity, ClipForge (localhost:3000), Terminal","dailyTrends":[{"totalHours":0,"deepWorkHours":0,"dayLabel":"Tue"},{"totalHours":0,"deepWorkHours":0,"dayLabel":"Wed"},{"totalHours":0,"deepWorkHours":0,"dayLabel":"Thu"},{"totalHours":0.8,"deepWorkHours":0,"dayLabel":"Fri"},{"totalHours":0.4,"deepWorkHours":0,"dayLabel":"Sat"},{"totalHours":11.6,"deepWorkHours":7.2,"dayLabel":"Sun"},{"totalHours":0.2,"deepWorkHours":0.1,"dayLabel":"Today"}],"topWebsites":[{"percentage":0.166626036079961,"durationSeconds":8202,"domain":"ClipForge (localhost:3000)"},{"percentage":0.0072728750203152935,"durationSeconds":358,"domain":"google.com"},{"percentage":0.005952380952380952,"durationSeconds":293,"domain":"youtube.com"},{"percentage":0.002742564602632862,"durationSeconds":135,"domain":"metadata2go.com"},{"percentage":0.001340809361287177,"durationSeconds":66,"domain":"exif.tools"},{"percentage":0.0001422070534698521,"durationSeconds":7,"domain":"ClipForge (localhost:3000)enson"}]}
+  </script>
+  <!-- REAL_ANALYTICS_DATA_END -->
 </head>
 <body class="bg-macBg text-slate-100 min-h-screen p-6 md:p-10 selection:bg-macAccent selection:text-white">
 
@@ -445,6 +450,129 @@
       }
     });
 
+    let realData = null;
+    
+    // Check if real analytics data was embedded by MacUsageTracker
+    try {
+      const dataEl = document.getElementById('real-analytics-data');
+      if (dataEl && dataEl.textContent.trim()) {
+        realData = JSON.parse(dataEl.textContent.trim());
+      }
+    } catch (e) {
+      console.warn("Could not parse embedded analytics:", e);
+    }
+
+    async function fetchRealData() {
+      if (!realData) {
+        try {
+          const resp = await fetch('analytics_data.json');
+          if (resp.ok) {
+            realData = await resp.json();
+          }
+        } catch (e) {
+          console.warn("Could not fetch analytics_data.json:", e);
+        }
+      }
+      if (realData) {
+        applyRealData(realData);
+      }
+    }
+
+    function applyRealData(data) {
+      if (!data) return;
+      
+      // Update KPIs
+      if (data.totalScreenTimeFormatted) {
+        document.getElementById('kpi-screentime').innerText = data.totalScreenTimeFormatted;
+      }
+      if (data.productivityScore !== undefined) {
+        document.getElementById('kpi-score').innerText = `${data.productivityScore} / 100`;
+      }
+      if (data.topWebsites && data.topWebsites.length > 0) {
+        document.getElementById('kpi-software').innerText = data.topWebsites[0].domain.split(' ')[0];
+      } else if (data.topPrograms && data.topPrograms.length > 0) {
+        document.getElementById('kpi-software').innerText = data.topPrograms[0].name;
+      }
+      if (data.longestStreakFormatted) {
+        document.getElementById('kpi-streak').innerText = data.longestStreakFormatted;
+      }
+
+      // Update Daily Trend Chart
+      if (data.dailyTrends && data.dailyTrends.length > 0) {
+        trendChart.data.labels = data.dailyTrends.map(d => d.dayLabel);
+        trendChart.data.datasets[0].data = data.dailyTrends.map(d => d.totalHours);
+        trendChart.data.datasets[1].data = data.dailyTrends.map(d => d.deepWorkHours);
+        trendChart.update();
+      }
+
+      // Update Category Donut Chart
+      if (data.categories && data.categories.length > 0) {
+        const activeCats = data.categories.filter(c => c.percentage > 0);
+        categoryChart.data.labels = activeCats.map(c => c.name);
+        categoryChart.data.datasets[0].data = activeCats.map(c => c.percentage);
+        categoryChart.data.datasets[0].backgroundColor = activeCats.map(c => c.colorHex);
+        categoryChart.update();
+      }
+
+      const formatSec = s => {
+        const sec = s || 0;
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        if (h > 0) return `${h}h ${m}m`;
+        if (m > 0) return `${m}m`;
+        return `${sec}s`;
+      };
+
+      // Update Top Applications list
+      if (data.topPrograms && data.topPrograms.length > 0) {
+        const appsContainer = document.getElementById('apps-list');
+        if (appsContainer) {
+          appsContainer.innerHTML = data.topPrograms.slice(0, 5).map((app, idx) => `
+            <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-xs font-mono font-bold text-macAccent w-6">#${idx + 1}</span>
+                <div class="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-sm">💻</div>
+                <div>
+                  <p class="text-sm font-semibold text-white">${app.name}</p>
+                  <p class="text-xs text-slate-500">${formatSec(app.durationSeconds)}</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-bold mono">${formatSec(app.durationSeconds)}</p>
+                <p class="text-xs text-slate-500">${Math.round(app.percentage * 100)}%</p>
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+
+      // Update Top Websites list
+      if (data.topWebsites && data.topWebsites.length > 0) {
+        const websContainer = document.getElementById('websites-list');
+        if (websContainer) {
+          websContainer.innerHTML = data.topWebsites.slice(0, 5).map((site, idx) => `
+            <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-xs font-mono font-bold text-macEmerald w-6">#${idx + 1}</span>
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-sm">🌐</div>
+                <div>
+                  <p class="text-sm font-semibold text-white">${site.domain}</p>
+                  <p class="text-xs text-slate-500">${formatSec(site.durationSeconds)}</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-bold mono text-emerald-400">${formatSec(site.durationSeconds)}</p>
+                <p class="text-xs text-slate-500">${Math.round(site.percentage * 100)}%</p>
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    // Call on load
+    fetchRealData();
+
     // Period switcher
     function switchPeriod(p) {
       document.querySelectorAll('.period-btn').forEach(btn => {
@@ -452,24 +580,13 @@
         btn.classList.add('text-slate-400');
       });
       const active = document.getElementById('btn-' + p);
-      active.classList.add('bg-macAccent', 'text-white', 'shadow');
-      active.classList.remove('text-slate-400');
+      if (active) {
+        active.classList.add('bg-macAccent', 'text-white', 'shadow');
+        active.classList.remove('text-slate-400');
+      }
 
-      if (p === 'today') {
-        document.getElementById('kpi-screentime').innerText = '4h 15m';
-        document.getElementById('kpi-score').innerText = '88 / 100';
-        document.getElementById('kpi-software').innerText = 'ClipForge';
-        document.getElementById('kpi-streak').innerText = '1h 48m';
-      } else if (p === 'week') {
-        document.getElementById('kpi-screentime').innerText = '37h 20m';
-        document.getElementById('kpi-score').innerText = '84 / 100';
-        document.getElementById('kpi-software').innerText = 'ClipForge';
-        document.getElementById('kpi-streak').innerText = '2h 45m';
-      } else {
-        document.getElementById('kpi-screentime').innerText = '142h 50m';
-        document.getElementById('kpi-score').innerText = '86 / 100';
-        document.getElementById('kpi-software').innerText = 'ClipForge';
-        document.getElementById('kpi-streak').innerText = '3h 10m';
+      if (realData) {
+        applyRealData(realData);
       }
     }
 
@@ -480,13 +597,17 @@
       spinner.classList.remove('hidden');
       btn.disabled = true;
 
+      const screenTime = (realData && realData.totalScreenTimeFormatted) ? realData.totalScreenTimeFormatted : '4h';
+      const devPct = (realData && realData.deepWorkPercentage) ? realData.deepWorkPercentage : 65;
+      const topFocus = (realData && realData.deepWorkSummary) ? realData.deepWorkSummary : 'Antigravity & ClipForge';
+
       try {
         const response = await fetch('http://127.0.0.1:11434/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: 'qwen2.5:3b',
-            prompt: 'You are a productivity coach. Given: 4h screen time, 74% deep work in Antigravity and ClipForge on localhost:3000. Give 3 quick practical tips (1: Deep Work Win, 2: Efficiency Lever, 3: Power Habit). Return valid JSON: {"win": "...", "lever": "...", "habit": "..."}',
+            prompt: `You are a productivity coach. Real metrics: Screen Time: ${screenTime}, Deep Work Focus: ${devPct}% in ${topFocus}. Give 3 quick practical tips (1: Deep Work Win, 2: Efficiency Lever, 3: Power Habit). Return valid JSON: {"win": "...", "lever": "...", "habit": "..."}`,
             format: 'json',
             stream: false
           })
@@ -500,7 +621,7 @@
               <div class="flex items-center gap-2 text-emerald-400 text-xs font-bold mb-1">
                 <span>🎯</span> DEEP WORK WIN
               </div>
-              <p class="text-xs text-slate-300 leading-relaxed">${parsed.win || "Tremendous focus on core video clipping architecture in ClipForge."}</p>
+              <p class="text-xs text-slate-300 leading-relaxed">${parsed.win || "Tremendous focus on core engineering and ClipForge."}</p>
             </div>
             <div class="bg-macCard/70 border border-slate-800 rounded-xl p-4">
               <div class="flex items-center gap-2 text-amber-400 text-xs font-bold mb-1">
@@ -512,7 +633,7 @@
               <div class="flex items-center gap-2 text-purple-400 text-xs font-bold mb-1">
                 <span>🚀</span> POWER HABIT
               </div>
-              <p class="text-xs text-slate-300 leading-relaxed">${parsed.habit || "Set a 90m timer sprint, then step away for hydration."}</p>
+              <p class="text-xs text-slate-300 leading-relaxed">${parsed.habit || "Pace sprints with 90-minute hydration reminders to sustain evening energy."}</p>
             </div>
           `;
         }

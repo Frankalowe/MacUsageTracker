@@ -356,6 +356,10 @@ public final class DataManager: ObservableObject {
 
     /// Normalizes and cleans website domain names and local software titles
     public static func normalizeWebsiteName(_ name: String) -> String {
+        let lower = name.lowercased()
+        if lower.contains("clipforge") {
+            return "ClipForge (localhost:3000)"
+        }
         let canonical = LocalLLMService.shared.canonicalWebsiteIdentifier(raw: name)
         return canonical.isEmpty ? name : canonical
     }
@@ -422,5 +426,41 @@ public final class DataManager: ObservableObject {
     public func clearAllSessions() {
         sessions.removeAll()
         save()
+    }
+    
+    /// Generates a 100% real productivity report based on actual tracked sessions
+    public func analyticsReport(
+        days: Int = 7,
+        includeLive: Bool = true,
+        liveAppUsage: [String: Int] = [:],
+        liveWebsiteUsage: [String: Int] = [:],
+        liveCurrentDuration: TimeInterval = 0
+    ) -> RealProductivityReport {
+        let periodSessions = sessionsInLastDays(days: days)
+        return ProductivityAnalyticsEngine.shared.generateReport(
+            sessions: periodSessions,
+            liveAppUsage: includeLive ? liveAppUsage : [:],
+            liveWebsiteUsage: includeLive ? liveWebsiteUsage : [:],
+            liveCurrentDuration: includeLive ? liveCurrentDuration : 0,
+            periodDays: days
+        )
+    }
+    
+    /// Exports the real analytics report to analytics_data.json and updates the web dashboard
+    public func exportAnalyticsForWebDashboard(
+        days: Int = 7,
+        includeLive: Bool = true,
+        liveAppUsage: [String: Int] = [:],
+        liveWebsiteUsage: [String: Int] = [:],
+        liveCurrentDuration: TimeInterval = 0
+    ) {
+        let report = analyticsReport(
+            days: days,
+            includeLive: includeLive,
+            liveAppUsage: liveAppUsage,
+            liveWebsiteUsage: liveWebsiteUsage,
+            liveCurrentDuration: liveCurrentDuration
+        )
+        ProductivityAnalyticsEngine.shared.exportForWebDashboard(report: report)
     }
 }

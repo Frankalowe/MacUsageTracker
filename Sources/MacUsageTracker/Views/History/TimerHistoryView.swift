@@ -31,6 +31,16 @@ public struct TimerHistoryView: View {
         dataManager.sessionsInLastDays(days: uiState.selectedPeriodDays)
     }
     
+    private var realReport: RealProductivityReport {
+        dataManager.analyticsReport(
+            days: uiState.selectedPeriodDays,
+            includeLive: includeLiveInSelectedView,
+            liveAppUsage: usageEngine.liveAppUsage,
+            liveWebsiteUsage: usageEngine.liveWebsiteUsage,
+            liveCurrentDuration: usageEngine.currentSessionDuration
+        )
+    }
+    
     private var todayDateKey: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
@@ -521,6 +531,13 @@ public struct TimerHistoryView: View {
                     Spacer()
                     
                     Button(action: {
+                        dataManager.exportAnalyticsForWebDashboard(
+                            days: uiState.selectedPeriodDays,
+                            includeLive: includeLiveInSelectedView,
+                            liveAppUsage: usageEngine.liveAppUsage,
+                            liveWebsiteUsage: usageEngine.liveWebsiteUsage,
+                            liveCurrentDuration: usageEngine.currentSessionDuration
+                        )
                         let path = "/Users/franklowe/Documents/antigravity/brave-oppenheimer/productivity_dashboard.html"
                         NSWorkspace.shared.open(URL(fileURLWithPath: path))
                     }) {
@@ -579,7 +596,7 @@ public struct TimerHistoryView: View {
                 }
                 .buttonStyle(.plain)
                 
-                // 3 Score Cards
+                // 3 Real Analytics Score Cards (Calculated directly from actual tracked sessions)
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
@@ -588,12 +605,12 @@ public struct TimerHistoryView: View {
                                 .foregroundColor(.secondary)
                             Spacer()
                             Image(systemName: "bolt.shield.fill")
-                                .foregroundColor(.green)
+                                .foregroundColor(realReport.productivityScore >= 70 ? .green : (realReport.productivityScore >= 50 ? .orange : .red))
                         }
-                        Text("88 / 100")
+                        Text("\(realReport.productivityScore) / 100")
                             .font(.system(size: 22, weight: .bold, design: .monospaced))
-                            .foregroundColor(.green)
-                        Text("High Deep Work Ratio")
+                            .foregroundColor(realReport.productivityScore >= 70 ? .green : (realReport.productivityScore >= 50 ? .orange : .red))
+                        Text(realReport.productivityRatioDescription)
                             .font(.system(size: 10))
                             .foregroundColor(.secondary)
                     }
@@ -611,12 +628,13 @@ public struct TimerHistoryView: View {
                             Image(systemName: "laptopcomputer")
                                 .foregroundColor(.blue)
                         }
-                        Text("78%")
+                        Text("\(realReport.deepWorkPercentage)%")
                             .font(.system(size: 22, weight: .bold, design: .monospaced))
                             .foregroundColor(.blue)
-                        Text("Dev, CLI & ClipForge")
+                        Text(realReport.deepWorkSummary)
                             .font(.system(size: 10))
                             .foregroundColor(.secondary)
+                            .lineLimit(1)
                     }
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -632,10 +650,10 @@ public struct TimerHistoryView: View {
                             Image(systemName: "sun.max.fill")
                                 .foregroundColor(.orange)
                         }
-                        Text("Morning")
+                        Text(realReport.peakWindowName)
                             .font(.system(size: 20, weight: .bold))
                             .foregroundColor(.orange)
-                        Text("9:30 AM – 1:00 PM")
+                        Text(realReport.peakWindowTimeRange)
                             .font(.system(size: 10, design: .monospaced))
                             .foregroundColor(.secondary)
                     }
@@ -644,6 +662,39 @@ public struct TimerHistoryView: View {
                     .background(Color(NSColor.controlBackgroundColor))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
+                
+                // Real Category Distribution Card
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("REAL WORK CATEGORY BREAKDOWN")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("Screen Time: \(realReport.totalScreenTimeFormatted)")
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.primary)
+                    }
+                    
+                    HStack(spacing: 8) {
+                        ForEach(realReport.categories) { cat in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(cat.percentage)%")
+                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                Text(cat.name)
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(NSColor.windowBackgroundColor).opacity(0.6))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                    }
+                }
+                .padding(14)
+                .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
                 
                 // AI Coach Card (Ollama Local LLM Powered)
                 VStack(alignment: .leading, spacing: 12) {
