@@ -21,69 +21,79 @@ public struct ToastNotificationView: View {
     let onDismiss: () -> Void
     
     public var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Icon
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(red: 0.25, green: 0.88, blue: 0.55), Color(red: 0.1, green: 0.72, blue: 0.42)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+        VStack(alignment: .leading, spacing: 6) {
+            // Header Row: App Icon + App Name + "now" + Close Button (macOS native style)
+            HStack(spacing: 6) {
+                // Mini App Icon with Light Green Accent
+                ZStack {
+                    RoundedRectangle(cornerRadius: 4.5, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(red: 0.25, green: 0.85, blue: 0.55), Color(red: 0.12, green: 0.68, blue: 0.4)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .frame(width: 36, height: 36)
-                Image(systemName: data.icon)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-            }
-            .padding(.top, 2)
-            
-            // Content
-            VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Text(data.title)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.primary)
-                    
-                    Spacer()
-                    
-                    Button(action: onDismiss) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.secondary)
-                            .padding(4)
-                            .background(Color.gray.opacity(0.15))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
+                        .frame(width: 18, height: 18)
+                    Image(systemName: data.icon)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
                 }
                 
-                if let sub = data.subtitle, !sub.isEmpty {
-                    Text(sub)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(Color(red: 0.15, green: 0.75, blue: 0.45))
-                }
-                
-                Text(data.body)
-                    .font(.system(size: 11, design: .serif))
-                    .lineSpacing(2)
+                Text("Mac Usage Tracker")
+                    .font(.system(size: 12, weight: .semibold, design: .default))
                     .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                
+                Text("• now")
+                    .font(.system(size: 11, weight: .regular, design: .default))
+                    .foregroundColor(.secondary.opacity(0.7))
+                
+                Spacer()
+                
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(4)
+                        .background(Color.secondary.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
             }
+            
+            // Notification Title (San Francisco 13pt semibold)
+            Text(data.title)
+                .font(.system(size: 13, weight: .semibold, design: .default))
+                .foregroundColor(.primary)
+                .lineLimit(1)
+            
+            // Subtitle (if available) with light green accent
+            if let sub = data.subtitle, !sub.isEmpty {
+                Text(sub)
+                    .font(.system(size: 12, weight: .medium, design: .default))
+                    .foregroundColor(Color(red: 0.2, green: 0.78, blue: 0.48))
+                    .lineLimit(1)
+            }
+            
+            // Message Body (San Francisco 12pt regular - matches native macOS notifications)
+            Text(data.body)
+                .font(.system(size: 12, weight: .regular, design: .default))
+                .foregroundColor(.primary.opacity(0.9))
+                .lineSpacing(2.5)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(14)
-        .frame(width: 340)
+        .padding(13)
+        .frame(width: 350)
         .background(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(NSColor.windowBackgroundColor).opacity(0.96))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color(red: 0.25, green: 0.88, blue: 0.55).opacity(0.45), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(red: 0.25, green: 0.85, blue: 0.55).opacity(0.35), lineWidth: 1)
         )
-        .shadow(color: Color(red: 0.15, green: 0.8, blue: 0.45).opacity(0.18), radius: 10, x: 0, y: 3)
-        .shadow(color: Color.black.opacity(0.25), radius: 16, x: 0, y: 6)
+        .shadow(color: Color(red: 0.15, green: 0.8, blue: 0.45).opacity(0.12), radius: 8, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.24), radius: 16, x: 0, y: 8)
     }
 }
 
@@ -107,11 +117,14 @@ public final class ToastNotificationWindowController {
         }
         
         let hostingView = NSHostingView(rootView: toastView)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 340, height: 110)
+        let fittingSize = hostingView.fittingSize
+        let toastWidth: CGFloat = 350
+        let toastHeight: CGFloat = max(90, fittingSize.height)
+        hostingView.frame = NSRect(x: 0, y: 0, width: toastWidth, height: toastHeight)
         
         if panel == nil {
             let p = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 340, height: 110),
+                contentRect: NSRect(x: 0, y: 0, width: toastWidth, height: toastHeight),
                 styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false
@@ -130,14 +143,15 @@ public final class ToastNotificationWindowController {
         
         guard let p = panel else { return }
         p.contentView = hostingView
+        p.setContentSize(NSSize(width: toastWidth, height: toastHeight))
         
-        // Position at top-right of the active screen where the user is currently working
+        // Position at top-right of the active screen, immediately below menu bar (matching macOS system notification alignment)
         let mouseLoc = NSEvent.mouseLocation
         let targetScreen = NSScreen.screens.first(where: { NSMouseInRect(mouseLoc, $0.frame, false) }) ?? NSScreen.main ?? NSScreen.screens.first
         if let screen = targetScreen {
             let screenRect = screen.visibleFrame
-            let x = screenRect.maxX - 360
-            let y = screenRect.maxY - 130
+            let x = screenRect.maxX - toastWidth - 16
+            let y = screenRect.maxY - toastHeight - 12
             p.setFrameOrigin(NSPoint(x: x, y: y))
         }
         
