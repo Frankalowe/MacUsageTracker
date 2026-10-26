@@ -79,6 +79,9 @@ public final class BrowserExtensionServer: ObservableObject {
             let parts = line.components(separatedBy: " ")
             if parts.count >= 2 {
                 let path = parts[1]
+                if path.contains("/test-notification") || path.contains("/notify") {
+                    NotificationService.shared.sendTestNotification()
+                }
                 if let urlComponents = URLComponents(string: "http://127.0.0.1" + path) {
                     domain = urlComponents.queryItems?.first(where: { $0.name == "name" || $0.name == "domain" })?.value
                     title = urlComponents.queryItems?.first(where: { $0.name == "title" })?.value
