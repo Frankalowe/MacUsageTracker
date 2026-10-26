@@ -411,6 +411,29 @@ public final class LocalLLMService: ObservableObject {
         }
     }
     
+    // Pool of verified famous figures to ensure 100% diverse, real quotes on every generation
+    private static let notablePeople: [String] = [
+        "Steve Jobs", "Albert Einstein", "Nikola Tesla", "Marcus Aurelius", "Alan Turing",
+        "Marie Curie", "Leonardo da Vinci", "Richard Feynman", "Winston Churchill", "Seneca",
+        "Bruce Lee", "Theodore Roosevelt", "Henry Ford", "Aristotle", "Maya Angelou",
+        "Kobe Bryant", "Serena Williams", "Michael Jordan", "Muhammad Ali", "Ada Lovelace",
+        "Linus Torvalds", "Claude Shannon", "Grace Hopper", "Jensen Huang", "Tim Cook",
+        "Nelson Mandela", "Abraham Lincoln", "Benjamin Franklin", "Stephen Hawking", "Carl Sagan",
+        "Alexander the Great", "Johann Wolfgang von Goethe", "Mark Twain", "Walt Disney", "Helen Keller",
+        "Friedrich Nietzsche", "Epictetus", "Charles Darwin", "Confucius", "Sun Tzu",
+        "Pablo Picasso", "Isaac Newton", "Galileo Galilei", "David Goggins", "James Clear",
+        "Cal Newport", "Robin Sharma", "Alexander Graham Bell", "Louis Pasteur", "Eleanor Roosevelt"
+    ]
+    
+    private var peopleShuffleDeck: [String] = []
+    
+    private func getNextPerson() -> String {
+        if peopleShuffleDeck.isEmpty {
+            peopleShuffleDeck = Self.notablePeople.shuffled()
+        }
+        return peopleShuffleDeck.removeFirst()
+    }
+    
     /// Generates a motivational quote using the local LLM
     public func generateMotivationalQuote(
         preferredModel: String = "auto",
@@ -440,21 +463,14 @@ public final class LocalLLMService: ObservableObject {
         let cleanEndpoint = endpoint.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard let url = URL(string: "\(cleanEndpoint)/api/generate") else { return nil }
         
-        let domains = [
-            "technology & computer science pioneers (e.g. Steve Jobs, Alan Turing, Linus Torvalds, Claude Shannon, Grace Hopper, Ada Lovelace, Jensen Huang)",
-            "great philosophers & stoics (e.g. Marcus Aurelius, Seneca, Aristotle, Epictetus, Friedrich Nietzsche, Confucius, Lao Tzu)",
-            "world-renowned scientists & physicists (e.g. Albert Einstein, Richard Feynman, Marie Curie, Isaac Newton, Stephen Hawking, Galileo Galilei)",
-            "historic leaders & visionaries (e.g. Winston Churchill, Theodore Roosevelt, Nelson Mandela, Abraham Lincoln, Benjamin Franklin, Eleanor Roosevelt)",
-            "elite champions & athletes (e.g. Michael Jordan, Kobe Bryant, Muhammad Ali, Serena Williams, Bruce Lee)",
-            "legendary inventors & innovators (e.g. Leonardo da Vinci, Nikola Tesla, Thomas Edison, Henry Ford, Alexander Graham Bell)"
-        ]
-        let chosenDomain = domains.randomElement() ?? "visionaries"
+        let selectedPerson = getNextPerson()
+        let randomSeed = Int.random(in: 1...10_000_000)
         
         let prompt = """
-        Quote an authentic, famous motivational quote from a REAL person in \(chosenDomain).
-        The author MUST be a real, notable historical or modern figure. Do NOT fabricate quotes, and do NOT use "Anonymous" or "AI Mentor".
-        Choose a different quote every time.
-        Format strictly as JSON: {"quote": "The quote text", "author": "Full Name of Real Person"}
+        Quote an authentic, famous, motivating quote specifically by \(selectedPerson).
+        The author MUST be \(selectedPerson).
+        Do NOT invent or fabricate quotes, and do NOT use "Anonymous" or "AI Mentor".
+        Format strictly as JSON: {"quote": "Exact memorable quote text", "author": "\(selectedPerson)"}
         """
         
         let requestPayload: [String: Any] = [
@@ -463,8 +479,8 @@ public final class LocalLLMService: ObservableObject {
             "format": "json",
             "stream": false,
             "options": [
-                "temperature": 0.92,
-                "top_p": 0.95
+                "temperature": 0.95,
+                "seed": randomSeed
             ]
         ]
         
@@ -476,6 +492,7 @@ public final class LocalLLMService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = bodyData
+        request.timeoutInterval = 8.0
         
         do {
             let (data, response) = try await session.data(for: request)

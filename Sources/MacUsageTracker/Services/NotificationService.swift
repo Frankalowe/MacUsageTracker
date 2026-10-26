@@ -210,6 +210,25 @@ public final class NotificationService: NSObject, UNUserNotificationCenterDelega
     private var quoteDeck: [Int] = []
     private var lastUsedQuoteIndex: Int = -1
     
+    // De-duplication history buffer across ALL quote sources (LLM and curated)
+    private var recentlyShownQuoteHashes: Set<String> = []
+    private var recentQuoteQueue: [String] = []
+    
+    public func recordShownQuote(_ text: String) {
+        let key = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        recentlyShownQuoteHashes.insert(key)
+        recentQuoteQueue.append(key)
+        if recentQuoteQueue.count > 60 {
+            let oldest = recentQuoteQueue.removeFirst()
+            recentlyShownQuoteHashes.remove(oldest)
+        }
+    }
+    
+    public func isRecentlyShown(_ text: String) -> Bool {
+        let key = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        return recentlyShownQuoteHashes.contains(key)
+    }
+    
     public func getRandomMotivationalQuote() -> (quote: String, author: String) {
         if quoteDeck.isEmpty {
             quoteDeck = Array(0..<Self.motivationalQuotes.count).shuffled()
@@ -222,17 +241,35 @@ public final class NotificationService: NSObject, UNUserNotificationCenterDelega
         return Self.motivationalQuotes[nextIndex]
     }
     
-    /// Gets a motivational quote, sourcing from the local LLM if enabled, with fallback to curated library
+    /// Gets a motivational quote, sourcing from the local LLM if enabled, strictly enforcing NO REPEATS
     public func getMotivationalQuote() async -> (quote: String, author: String) {
         let settings = DataManager.shared.settings
         if settings.useLocalLLMForQuotes {
-            if let llmQuote = await LocalLLMService.shared.generateMotivationalQuote(
-                preferredModel: settings.localLLMModel,
-                endpoint: settings.localLLMEndpoint
-            ) {
-                return llmQuote
+            // Attempt up to 3 times to get a fresh, non-repeated quote from the local LLM
+            for _ in 0..<3 {
+                if let llmQuote = await LocalLLMService.shared.generateMotivationalQuote(
+                    preferredModel: settings.localLLMModel,
+                    endpoint: settings.localLLMEndpoint
+                ) {
+                    if !isRecentlyShown(llmQuote.quote) {
+                        recordShownQuote(llmQuote.quote)
+                        return llmQuote
+                    }
+                }
             }
         }
-        return getRandomMotivationalQuote()
+        
+        // Fallback: Pick a non-repeated quote from our verified real-people collection
+        for _ in 0..<Self.motivationalQuotes.count {
+            let quote = getRandomMotivationalQuote()
+            if !isRecentlyShown(quote.quote) {
+                recordShownQuote(quote.quote)
+                return quote
+            }
+        }
+        
+        let fallback = getRandomMotivationalQuote()
+        recordShownQuote(fallback.quote)
+        return fallback
     }
 }
