@@ -42,9 +42,33 @@ public final class UsageTrackerEngine: ObservableObject {
     private var timerCancellable: AnyCancellable?
     private var observers: [Any] = []
     
+    // Exact state tracking for sleep, display sleep, lock screen, and screensaver
+    @Published public private(set) var isScreenLocked: Bool = false
+    @Published public private(set) var isScreensaverRunning: Bool = false
+    @Published public private(set) var isSystemSleeping: Bool = false
+    @Published public private(set) var isDisplaysSleeping: Bool = false
+    
+    public static func isScreenLockedOrInactive() -> Bool {
+        if let sessionDict = CGSessionCopyCurrentDictionary() as? [String: Any] {
+            if let locked = sessionDict["CGSSessionScreenIsLocked"] as? Bool, locked {
+                return true
+            }
+            if let lockedNum = sessionDict["CGSSessionScreenIsLocked"] as? NSNumber, lockedNum.boolValue {
+                return true
+            }
+            if let onConsole = sessionDict["kCGSSessionOnConsoleKey"] as? NSNumber, !onConsole.boolValue {
+                return true
+            }
+        }
+        return false
+    }
+    
     public init() {
         let now = Date()
         self.currentSessionStart = now
+        
+        let screenInactive = Self.isScreenLockedOrInactive()
+        self.isScreenLocked = screenInactive
         
         // Restore running session seamlessly if recovering from app update/restart
         restoreActiveSessionIfAvailable(fallbackNow: now)
@@ -52,8 +76,16 @@ public final class UsageTrackerEngine: ObservableObject {
         // Start local receiver for optional browser companion extension
         BrowserExtensionServer.shared.start()
         
-        startTimer()
         setupSystemObservers()
+        
+        if screenInactive {
+            self.isAwake = false
+            self.currentSessionDuration = 0
+            self.stopTimer()
+        } else {
+            self.isAwake = true
+            startTimer()
+        }
     }
     
     /// Called when the companion browser extension reports the active tab domain and title
@@ -424,8 +456,9 @@ public final class UsageTrackerEngine: ObservableObject {
     
     private func setupSystemObservers() {
         let workspaceCenter = NSWorkspace.shared.notificationCenter
+        let distributedCenter = DistributedNotificationCenter.default()
         
-        // When MacBook is about to sleep
+        // When MacBook is about to sleep (lid close / full system sleep)
         let sleepObs = workspaceCenter.addObserver(
             forName: NSWorkspace.willSleepNotification,
             object: nil,
@@ -437,7 +470,7 @@ public final class UsageTrackerEngine: ObservableObject {
         }
         observers.append(sleepObs)
         
-        // When MacBook wakes up
+        // When MacBook wakes up from full system sleep
         let wakeObs = workspaceCenter.addObserver(
             forName: NSWorkspace.didWakeNotification,
             object: nil,
@@ -448,6 +481,78 @@ public final class UsageTrackerEngine: ObservableObject {
             }
         }
         observers.append(wakeObs)
+        
+        // Display sleeps — covers power button → Sleep, display idle timeout
+        let screenSleepObs = workspaceCenter.addObserver(
+            forName: NSWorkspace.screensDidSleepNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleDisplaySleep()
+            }
+        }
+        observers.append(screenSleepObs)
+        
+        // Display wakes — covers power button wake, display timeout wake
+        let screenWakeObs = workspaceCenter.addObserver(
+            forName: NSWorkspace.screensDidWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleDisplayWake()
+            }
+        }
+        observers.append(screenWakeObs)
+        
+        // Screen lock (Cmd+Ctrl+Q, Fast User Switching, etc.)
+        let lockObs = distributedCenter.addObserver(
+            forName: NSNotification.Name("com.apple.screenIsLocked"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleDisplaySleep()
+            }
+        }
+        observers.append(lockObs)
+        
+        // Screen unlock
+        let unlockObs = distributedCenter.addObserver(
+            forName: NSNotification.Name("com.apple.screenIsUnlocked"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleDisplayWake()
+            }
+        }
+        observers.append(unlockObs)
+        
+        // Screensaver starts
+        let ssStartObs = distributedCenter.addObserver(
+            forName: NSNotification.Name("com.apple.screensaver.didstart"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleDisplaySleep()
+            }
+        }
+        observers.append(ssStartObs)
+        
+        // Screensaver stops
+        let ssStopObs = distributedCenter.addObserver(
+            forName: NSNotification.Name("com.apple.screensaver.didstop"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleDisplayWake()
+            }
+        }
+        observers.append(ssStopObs)
         
         // When App terminates or MacBook shuts down / restarts
         let termObs = NotificationCenter.default.addObserver(
@@ -462,13 +567,22 @@ public final class UsageTrackerEngine: ObservableObject {
         observers.append(termObs)
     }
     
+    /// Handles full system sleep (lid close). Finalizes session and stops timer.
     public func handleSystemWillSleep() {
+        guard isAwake else { return }
         finalizeCurrentSession()
         isAwake = false
+        isSystemSleeping = true
         stopTimer()
+        InputTelemetryEngine.shared.handleSystemSleep()
     }
     
+    /// Handles full system wake. Only restarts timer if screen is not still locked.
     public func handleSystemDidWake() {
+        isSystemSleeping = false
+        // Screen may still be password-locked after wake — wait for unlock notification
+        if Self.isScreenLockedOrInactive() { return }
+        guard !isAwake else { return }
         currentSessionStart = Date()
         currentSessionDuration = 0
         lastQuoteIntervalIndex = 0
@@ -479,6 +593,37 @@ public final class UsageTrackerEngine: ObservableObject {
         isAwake = true
         persistActiveSessionState()
         startTimer()
+        InputTelemetryEngine.shared.handleSystemWake()
+    }
+    
+    /// Handles display sleep, screen lock, and screensaver start. Stops timer immediately.
+    public func handleDisplaySleep() {
+        guard isAwake else { return }
+        finalizeCurrentSession()
+        isAwake = false
+        isDisplaysSleeping = true
+        stopTimer()
+        InputTelemetryEngine.shared.handleSystemSleep()
+    }
+    
+    /// Handles display wake, screen unlock, and screensaver stop. Restarts timer if screen is active.
+    public func handleDisplayWake() {
+        // If screen is still locked (e.g. password prompt still showing), do not restart
+        if Self.isScreenLockedOrInactive() { return }
+        guard !isAwake else { return }
+        currentSessionStart = Date()
+        currentSessionDuration = 0
+        lastQuoteIntervalIndex = 0
+        lastStretchIntervalIndex = 0
+        liveAppUsage.removeAll()
+        liveWebsiteUsage.removeAll()
+        cachedBrowserDomain = nil
+        isAwake = true
+        isDisplaysSleeping = false
+        isScreenLocked = false
+        persistActiveSessionState()
+        startTimer()
+        InputTelemetryEngine.shared.handleSystemWake()
     }
     
     public func handleSystemWillTerminate() {

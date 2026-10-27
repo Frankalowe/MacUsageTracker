@@ -341,4 +341,18 @@ public final class InputTelemetryEngine: ObservableObject {
         self.totalMouseClicks = decoded.totalMouseClicks
         self.cursorDistanceMeters = decoded.cursorDistanceMeters
     }
+    
+    public func handleSystemSleep() {
+        self.currentState = .idle
+        self.keystrokesPerMinute = 0
+        self.mouseClicksPerMinute = 0
+        self.currentWindowTitle = ""
+        self.saveTelemetry()
+    }
+    
+    public func handleSystemWake() {
+        self.currentState = .working
+        self.keystrokesPerMinute = 0
+        self.mouseClicksPerMinute = 0
+    }
 }
