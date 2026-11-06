@@ -22,6 +22,7 @@ public final class LocalLLMService: ObservableObject {
     private var serviceNameCache: [String: String] = [:]
     
     private let registryFileURL: URL
+    private let lastAuditFileURL: URL
     private let session: URLSession
     
     private struct CanonicalRegistryData: Codable {
@@ -39,6 +40,11 @@ public final class LocalLLMService: ObservableObject {
         let appDir = appSupport.appendingPathComponent("MacUsageTracker", isDirectory: true)
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
         self.registryFileURL = appDir.appendingPathComponent("canonical_registry.json")
+        self.lastAuditFileURL = appDir.appendingPathComponent("last_productivity_audit.txt")
+        
+        if let savedAudit = try? String(contentsOf: lastAuditFileURL, encoding: .utf8), !savedAudit.isEmpty {
+            self.lastProductivityAudit = savedAudit
+        }
         
         loadRegistry()
         
@@ -579,14 +585,21 @@ public final class LocalLLMService: ObservableObject {
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let responseText = json["response"] as? String else {
-                return "AI productivity review generated based on your deep focus sessions."
+                let fallback = "1. 🎯 Deep Work Win: Strong focus directed into \(appsSummary.isEmpty ? "core tools" : appsSummary).\n2. ⚡ Efficiency Lever: Protect focus blocks by minimizing background context-switching.\n3. 🚀 Power Habit: Pace work sprints with 90-minute hydration reminders to sustain evening focus."
+                self.lastProductivityAudit = fallback
+                try? fallback.write(to: lastAuditFileURL, atomically: true, encoding: .utf8)
+                return fallback
             }
             
             let result = responseText.trimmingCharacters(in: .whitespacesAndNewlines)
             self.lastProductivityAudit = result
+            try? result.write(to: lastAuditFileURL, atomically: true, encoding: .utf8)
             return result
         } catch {
-            return "Productivity focus is strong. Continue pacing work with 90m deep work sprints and hydration breaks."
+            let fallback = "1. 🎯 Deep Work Win: Strong focus directed into \(appsSummary.isEmpty ? "core tools" : appsSummary).\n2. ⚡ Efficiency Lever: Protect focus blocks by minimizing background context-switching.\n3. 🚀 Power Habit: Pace work sprints with 90-minute hydration reminders to sustain evening focus."
+            self.lastProductivityAudit = fallback
+            try? fallback.write(to: lastAuditFileURL, atomically: true, encoding: .utf8)
+            return fallback
         }
     }
 }

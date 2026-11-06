@@ -55,6 +55,77 @@ public struct ActivityTelemetryData: Codable, Sendable {
         let total = workingSeconds + watchingSeconds + readingSeconds
         return total > 0 ? max(0, 100 - (workPercentage + watchPercentage)) : 0
     }
+    
+    enum CodingKeys: String, CodingKey {
+        case currentState, currentAppName, currentWindowTitle
+        case keystrokesPerMinute, mouseClicksPerMinute, cursorDistanceMeters
+        case totalKeystrokes, totalMouseClicks
+        case workingSeconds, watchingSeconds, readingSeconds, idleSeconds
+        case workPercentage, watchPercentage, researchPercentage
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(currentState, forKey: .currentState)
+        try container.encode(currentAppName, forKey: .currentAppName)
+        try container.encode(currentWindowTitle, forKey: .currentWindowTitle)
+        try container.encode(keystrokesPerMinute, forKey: .keystrokesPerMinute)
+        try container.encode(mouseClicksPerMinute, forKey: .mouseClicksPerMinute)
+        try container.encode(cursorDistanceMeters, forKey: .cursorDistanceMeters)
+        try container.encode(totalKeystrokes, forKey: .totalKeystrokes)
+        try container.encode(totalMouseClicks, forKey: .totalMouseClicks)
+        try container.encode(workingSeconds, forKey: .workingSeconds)
+        try container.encode(watchingSeconds, forKey: .watchingSeconds)
+        try container.encode(readingSeconds, forKey: .readingSeconds)
+        try container.encode(idleSeconds, forKey: .idleSeconds)
+        try container.encode(workPercentage, forKey: .workPercentage)
+        try container.encode(watchPercentage, forKey: .watchPercentage)
+        try container.encode(researchPercentage, forKey: .researchPercentage)
+    }
+    
+    public init(
+        currentState: UserActivityState,
+        currentAppName: String,
+        currentWindowTitle: String,
+        keystrokesPerMinute: Int,
+        mouseClicksPerMinute: Int,
+        cursorDistanceMeters: Double,
+        totalKeystrokes: Int,
+        totalMouseClicks: Int,
+        workingSeconds: Int,
+        watchingSeconds: Int,
+        readingSeconds: Int,
+        idleSeconds: Int
+    ) {
+        self.currentState = currentState
+        self.currentAppName = currentAppName
+        self.currentWindowTitle = currentWindowTitle
+        self.keystrokesPerMinute = keystrokesPerMinute
+        self.mouseClicksPerMinute = mouseClicksPerMinute
+        self.cursorDistanceMeters = cursorDistanceMeters
+        self.totalKeystrokes = totalKeystrokes
+        self.totalMouseClicks = totalMouseClicks
+        self.workingSeconds = workingSeconds
+        self.watchingSeconds = watchingSeconds
+        self.readingSeconds = readingSeconds
+        self.idleSeconds = idleSeconds
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.currentState = (try? container.decode(UserActivityState.self, forKey: .currentState)) ?? .working
+        self.currentAppName = (try? container.decode(String.self, forKey: .currentAppName)) ?? ""
+        self.currentWindowTitle = (try? container.decode(String.self, forKey: .currentWindowTitle)) ?? ""
+        self.keystrokesPerMinute = (try? container.decode(Int.self, forKey: .keystrokesPerMinute)) ?? 0
+        self.mouseClicksPerMinute = (try? container.decode(Int.self, forKey: .mouseClicksPerMinute)) ?? 0
+        self.cursorDistanceMeters = (try? container.decode(Double.self, forKey: .cursorDistanceMeters)) ?? 0.0
+        self.totalKeystrokes = (try? container.decode(Int.self, forKey: .totalKeystrokes)) ?? 0
+        self.totalMouseClicks = (try? container.decode(Int.self, forKey: .totalMouseClicks)) ?? 0
+        self.workingSeconds = (try? container.decode(Int.self, forKey: .workingSeconds)) ?? 0
+        self.watchingSeconds = (try? container.decode(Int.self, forKey: .watchingSeconds)) ?? 0
+        self.readingSeconds = (try? container.decode(Int.self, forKey: .readingSeconds)) ?? 0
+        self.idleSeconds = (try? container.decode(Int.self, forKey: .idleSeconds)) ?? 0
+    }
 }
 
 @MainActor

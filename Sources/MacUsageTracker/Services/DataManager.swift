@@ -454,13 +454,27 @@ public final class DataManager: ObservableObject {
         liveWebsiteUsage: [String: Int] = [:],
         liveCurrentDuration: TimeInterval = 0
     ) {
-        let report = analyticsReport(
+        var report = analyticsReport(
             days: days,
             includeLive: includeLive,
             liveAppUsage: liveAppUsage,
             liveWebsiteUsage: liveWebsiteUsage,
             liveCurrentDuration: liveCurrentDuration
         )
+        
+        // Multi-period precomputations for instant tab switching in the web dashboard
+        let p1 = analyticsReport(days: 1, includeLive: includeLive, liveAppUsage: liveAppUsage, liveWebsiteUsage: liveWebsiteUsage, liveCurrentDuration: liveCurrentDuration)
+        let p7 = (days == 7) ? report : analyticsReport(days: 7, includeLive: includeLive, liveAppUsage: liveAppUsage, liveWebsiteUsage: liveWebsiteUsage, liveCurrentDuration: liveCurrentDuration)
+        let p14 = (days == 14) ? report : analyticsReport(days: 14, includeLive: includeLive, liveAppUsage: liveAppUsage, liveWebsiteUsage: liveWebsiteUsage, liveCurrentDuration: liveCurrentDuration)
+        let p30 = (days == 30) ? report : analyticsReport(days: 30, includeLive: includeLive, liveAppUsage: liveAppUsage, liveWebsiteUsage: liveWebsiteUsage, liveCurrentDuration: liveCurrentDuration)
+        
+        report.periods = [
+            "1": p1,
+            "7": p7,
+            "14": p14,
+            "30": p30
+        ]
+        
         ProductivityAnalyticsEngine.shared.exportForWebDashboard(report: report)
     }
 }

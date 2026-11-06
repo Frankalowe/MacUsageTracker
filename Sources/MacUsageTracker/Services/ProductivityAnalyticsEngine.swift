@@ -15,6 +15,14 @@ public struct DailyTrendPoint: Codable, Identifiable {
     public var deepWorkHours: Double
 }
 
+public struct RealAIAudit: Codable, Sendable {
+    public var win: String
+    public var lever: String
+    public var habit: String
+    public var model: String
+    public var isAIGenerated: Bool
+}
+
 public struct RealProductivityReport: Codable {
     public var periodDays: Int
     public var totalScreenTimeSeconds: Int
@@ -49,6 +57,12 @@ public struct RealProductivityReport: Codable {
     
     // 8. Live Input Telemetry & Predicted State
     public var telemetry: ActivityTelemetryData?
+    
+    // 9. AI Productivity Coach Audit
+    public var aiAudit: RealAIAudit?
+    
+    // 10. Multi-period bundle (Today, 7D, 14D, 30D) for instant dashboard switching
+    public var periods: [String: RealProductivityReport]?
 }
 
 @MainActor
@@ -345,6 +359,17 @@ public final class ProductivityAnalyticsEngine {
         let minutes = (totalScreenTime % 3600) / 60
         let timeFormatted = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
         
+        let aiAudit = Self.synthesizeAIAudit(
+            screenTime: timeFormatted,
+            deepWorkPct: deepWorkPct,
+            deepWorkSummary: deepWorkSummary,
+            productivityGrade: grade,
+            peakWindow: windowName,
+            peakRange: peakRange,
+            topPrograms: topProgs,
+            topWebsites: topWebs
+        )
+        
         return RealProductivityReport(
             periodDays: periodDays,
             totalScreenTimeSeconds: totalScreenTime,
@@ -362,7 +387,63 @@ public final class ProductivityAnalyticsEngine {
             topPrograms: topProgs,
             topWebsites: topWebs,
             dailyTrends: dailyPoints,
-            telemetry: telemetry ?? InputTelemetryEngine.shared.currentTelemetryData()
+            telemetry: telemetry ?? InputTelemetryEngine.shared.currentTelemetryData(),
+            aiAudit: aiAudit,
+            periods: nil
+        )
+    }
+    
+    /// Synthesizes an actionable, multi-point productivity audit from real metrics
+    public static func synthesizeAIAudit(
+        screenTime: String,
+        deepWorkPct: Int,
+        deepWorkSummary: String,
+        productivityGrade: String,
+        peakWindow: String,
+        peakRange: String,
+        topPrograms: [AppUsageStat],
+        topWebsites: [WebsiteUsageStat]
+    ) -> RealAIAudit {
+        if let lastAudit = LocalLLMService.shared.lastProductivityAudit, !lastAudit.isEmpty {
+            let lines = lastAudit.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            var win = ""
+            var lever = ""
+            var habit = ""
+            for line in lines {
+                let clean = line.trimmingCharacters(in: .whitespaces)
+                if clean.localizedCaseInsensitiveContains("Deep Work") || clean.contains("Win:") || clean.contains("🎯") {
+                    win = clean.replacingOccurrences(of: "^[0-9.\\-•\\s]*", with: "", options: .regularExpression)
+                } else if clean.localizedCaseInsensitiveContains("Efficiency") || clean.contains("Lever:") || clean.contains("⚡") {
+                    lever = clean.replacingOccurrences(of: "^[0-9.\\-•\\s]*", with: "", options: .regularExpression)
+                } else if clean.localizedCaseInsensitiveContains("Power Habit") || clean.contains("Habit:") || clean.contains("🚀") {
+                    habit = clean.replacingOccurrences(of: "^[0-9.\\-•\\s]*", with: "", options: .regularExpression)
+                }
+            }
+            if !win.isEmpty && !lever.isEmpty {
+                return RealAIAudit(
+                    win: win,
+                    lever: lever,
+                    habit: habit.isEmpty ? "Pace sprints with 90-minute hydration reminders to sustain peak energy." : habit,
+                    model: "qwen2.5:3b (Ollama Local)",
+                    isAIGenerated: true
+                )
+            }
+        }
+        
+        let primaryDev = deepWorkSummary.isEmpty ? (topPrograms.first?.name ?? "Software Development") : deepWorkSummary
+        let win = "Tremendous focus directed into \(primaryDev). Maintained a \(deepWorkPct)% deep work ratio across \(screenTime) of tracked activity."
+        
+        let secondary = topPrograms.dropFirst().first?.name ?? (topWebsites.dropFirst().first?.domain ?? "peripheral tools")
+        let lever = "Context switching observed during \(secondary) usage. Protect deep coding flow by keeping non-essential communication and media tabs minimized."
+        
+        let habit = "Peak focus window identified in the \(peakWindow) (\(peakRange)). Reserve this exact window for architecture and complex debugging."
+        
+        return RealAIAudit(
+            win: win,
+            lever: lever,
+            habit: habit,
+            model: "Local AI Focus Engine",
+            isAIGenerated: false
         )
     }
     

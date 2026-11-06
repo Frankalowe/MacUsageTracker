@@ -539,8 +539,13 @@ public struct TimerHistoryView: View {
                             liveWebsiteUsage: usageEngine.liveWebsiteUsage,
                             liveCurrentDuration: usageEngine.currentSessionDuration
                         )
-                        let path = "/Users/franklowe/Documents/antigravity/brave-oppenheimer/productivity_dashboard.html"
-                        NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                        let httpURL = URL(string: "http://127.0.0.1:48123/dashboard")!
+                        let filePath = "/Users/franklowe/Documents/antigravity/brave-oppenheimer/productivity_dashboard.html"
+                        if BrowserExtensionServer.shared.isRunning {
+                            NSWorkspace.shared.open(httpURL)
+                        } else {
+                            NSWorkspace.shared.open(URL(fileURLWithPath: filePath))
+                        }
                     }) {
                         HStack(spacing: 4) {
                             Image(systemName: "safari")
@@ -922,7 +927,7 @@ public struct TimerHistoryView: View {
                         .disabled(localLLM.isAuditing)
                     }
                     
-                    if let audit = localLLM.lastProductivityAudit {
+                    if let audit = localLLM.lastProductivityAudit, !audit.isEmpty {
                         Text(audit)
                             .font(.system(size: 12, design: .serif))
                             .lineSpacing(4)
@@ -932,17 +937,27 @@ public struct TimerHistoryView: View {
                             .background(Color.accentColor.opacity(0.06))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     } else {
+                        let synth = ProductivityAnalyticsEngine.synthesizeAIAudit(
+                            screenTime: totalPeriodFormatted,
+                            deepWorkPct: realReport.deepWorkPercentage,
+                            deepWorkSummary: realReport.deepWorkSummary,
+                            productivityGrade: realReport.productivityGrade,
+                            peakWindow: realReport.peakWindowName,
+                            peakRange: realReport.peakWindowTimeRange,
+                            topPrograms: realReport.topPrograms,
+                            topWebsites: realReport.topWebsites
+                        )
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("• 🎯 Deep Work Win: Strong focus on ClipForge and core software development.")
-                            Text("• ⚡ Efficiency Lever: Afternoon YouTube playback shows brief context switching.")
-                            Text("• 🚀 Power Habit: Pace work sprints with 90-minute hydration reminders to sustain evening energy.")
+                            Text("• 🎯 Deep Work Win: \(synth.win)")
+                            Text("• ⚡ Efficiency Lever: \(synth.lever)")
+                            Text("• 🚀 Power Habit: \(synth.habit)")
                         }
                         .font(.system(size: 12))
                         .lineSpacing(3)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.primary)
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.gray.opacity(0.06))
+                        .background(Color.accentColor.opacity(0.06))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
@@ -953,6 +968,18 @@ public struct TimerHistoryView: View {
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(Color.accentColor.opacity(0.25), lineWidth: 1.5)
                 )
+                .task {
+                    if localLLM.lastProductivityAudit == nil && !localLLM.isAuditing {
+                        let screenTime = totalPeriodFormatted
+                        let topApps = topProgramsList.map { $0.name }
+                        let topWebs = topWebsitesList.map { $0.domain }
+                        _ = await localLLM.generateProductivityAudit(
+                            screenTime: screenTime,
+                            topApps: topApps,
+                            topWebsites: topWebs
+                        )
+                    }
+                }
                 
                 // AI Entity Deduplication Status
                 HStack(spacing: 12) {
